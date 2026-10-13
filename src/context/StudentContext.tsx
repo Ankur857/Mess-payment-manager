@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { StudentService } from '../services/studentService';
 import { CreateStudentInput, Student, StudentFeeStatus, StudentStatus, UpdateStudentInput } from '../types/student';
-import { addCalendarDays, getDaysRemaining, getTodayDateString } from '../utils/date';
+import { getDaysRemaining } from '../utils/date';
 import { StorageService } from '../utils/storage';
 import { generateStudentCode } from '../utils/studentCode';
 
@@ -17,83 +18,10 @@ interface StudentContextType {
 
 const StudentContext = createContext<StudentContextType | undefined>(undefined);
 
-// Initial seed students for first launch
-const INITIAL_SEED_STUDENTS: Student[] = [
-  {
-    id: 'stu-1',
-    studentCode: 'STU-2026-0001',
-    name: 'Aarav Sharma',
-    phone: '9876543210',
-    parentName: 'Ramesh Sharma',
-    parentPhone: '9876543211',
-    monthlyFee: 3500,
-    status: 'active',
-    admissionDate: '2026-01-10',
-    feeStatus: 'overdue',
-    lastPaymentDate: '2026-01-10',
-    nextDeadline: '2026-02-09',
-    daysRemaining: -4,
-    outstandingAmount: 3500,
-    createdAt: '2026-01-10T10:00:00Z',
-    updatedAt: '2026-02-09T10:00:00Z',
-  },
-  {
-    id: 'stu-2',
-    studentCode: 'STU-2026-0002',
-    name: 'Diya Patel',
-    phone: '9876500001',
-    parentName: 'Kirit Patel',
-    parentPhone: '9876500002',
-    monthlyFee: 4000,
-    status: 'active',
-    admissionDate: '2026-01-12',
-    feeStatus: 'overdue',
-    lastPaymentDate: '2026-01-12',
-    nextDeadline: '2026-02-11',
-    daysRemaining: -2,
-    outstandingAmount: 4000,
-    createdAt: '2026-01-12T10:00:00Z',
-    updatedAt: '2026-02-11T10:00:00Z',
-  },
-  {
-    id: 'stu-3',
-    studentCode: 'STU-2026-0003',
-    name: 'Vihaan Verma',
-    phone: '9876500003',
-    monthlyFee: 3500,
-    status: 'active',
-    admissionDate: '2026-01-14',
-    feeStatus: 'paid',
-    lastPaymentDate: '2026-02-13',
-    nextDeadline: '2026-03-15',
-    daysRemaining: 28,
-    outstandingAmount: 0,
-    createdAt: '2026-01-14T10:00:00Z',
-    updatedAt: '2026-02-13T10:00:00Z',
-  },
-  {
-    id: 'stu-4',
-    studentCode: 'STU-2026-0004',
-    name: 'Ananya Iyer',
-    phone: '9876500004',
-    monthlyFee: 4500,
-    status: 'active',
-    admissionDate: '2026-01-15',
-    feeStatus: 'due',
-    lastPaymentDate: '2026-01-15',
-    nextDeadline: '2026-02-14',
-    daysRemaining: 1,
-    outstandingAmount: 4500,
-    createdAt: '2026-01-15T10:00:00Z',
-    updatedAt: '2026-02-12T10:00:00Z',
-  },
-];
-
 export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Recalculates dynamically updated daysRemaining and status for each student
   const recalculateStudentStatus = (student: Student): Student => {
     const daysLeft = getDaysRemaining(student.nextDeadline);
     let feeStatus: StudentFeeStatus = student.feeStatus;
@@ -118,15 +46,10 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const loadStudents = async () => {
     setLoading(true);
     try {
-      let stored = await StorageService.getStudents();
-      if (!stored || stored.length === 0) {
-        // Seed default initial students for first launch
-        await StorageService.saveStudents(INITIAL_SEED_STUDENTS);
-        stored = INITIAL_SEED_STUDENTS;
-      }
-
-      const updated = stored.map(recalculateStudentStatus);
+      const fetched = await StudentService.fetchStudents();
+      const updated = fetched.map(recalculateStudentStatus);
       setStudents(updated);
+      await StorageService.saveStudents(updated);
     } catch (e) {
       console.error('Error loading students:', e);
     } finally {
@@ -140,7 +63,6 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const peekNextStudentCode = async (): Promise<string> => {
     const seq = await StorageService.peekNextSequence();
-    // Ensure sequence exceeds any existing student codes
     const existingMax = students.reduce((max, s) => {
       const parts = s.studentCode.split('-');
       const num = parts.length === 3 ? parseInt(parts[2], 10) : 0;
@@ -160,29 +82,17 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const nextSeq = Math.max(seq, existingMax + 1);
     const studentCode = generateStudentCode(nextSeq);
 
-    const admissionDate = input.admissionDate || getTodayDateString();
-    const nextDeadline = addCalendarDays(admissionDate, 30);
-    const daysLeft = getDaysRemaining(nextDeadline);
+    // Upload photo to Supabase Storage if present
+    let remotePhotoUrl = input.photoUrl;
+    if (input.photoUrl) {
+      const uploaded = await StudentService.uploadPhoto(input.photoUrl, studentCode);
+      if (uploaded) remotePhotoUrl = uploaded;
+    }
 
-    const newStudent: Student = {
-      id: `stu-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-      studentCode,
-      name: input.name.trim(),
-      phone: input.phone.trim(),
-      parentName: input.parentName?.trim() || undefined,
-      parentPhone: input.parentPhone?.trim() || undefined,
-      monthlyFee: Number(input.monthlyFee),
-      status: 'active',
-      photoUrl: input.photoUrl,
-      admissionDate,
-      feeStatus: 'due',
-      lastPaymentDate: undefined,
-      nextDeadline,
-      daysRemaining: daysLeft,
-      outstandingAmount: Number(input.monthlyFee),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    const newStudent = await StudentService.createStudent(
+      { ...input, photoUrl: remotePhotoUrl },
+      studentCode
+    );
 
     const updatedList = [newStudent, ...students];
     setStudents(updatedList);
@@ -193,19 +103,29 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const updateStudent = async (id: string, input: UpdateStudentInput): Promise<Student> => {
     let updatedRecord: Student | null = null;
 
+    // Upload photo to Supabase Storage if changed
+    let remotePhotoUrl = input.photoUrl;
+    const existing = students.find((s) => s.id === id);
+    if (input.photoUrl && input.photoUrl !== existing?.photoUrl && existing) {
+      const uploaded = await StudentService.uploadPhoto(input.photoUrl, existing.studentCode);
+      if (uploaded) remotePhotoUrl = uploaded;
+    }
+
+    const payload = { ...input, photoUrl: remotePhotoUrl };
+    await StudentService.updateStudent(id, payload);
+
     const updatedList = students.map((s) => {
       if (s.id !== id) return s;
 
-      // Ensure studentCode, admissionDate, and billing cycle fields are preserved
       updatedRecord = {
         ...s,
-        name: input.name !== undefined ? input.name.trim() : s.name,
-        phone: input.phone !== undefined ? input.phone.trim() : s.phone,
-        parentName: input.parentName !== undefined ? input.parentName.trim() : s.parentName,
-        parentPhone: input.parentPhone !== undefined ? input.parentPhone.trim() : s.parentPhone,
-        monthlyFee: input.monthlyFee !== undefined ? Number(input.monthlyFee) : s.monthlyFee,
-        photoUrl: input.photoUrl !== undefined ? input.photoUrl : s.photoUrl,
-        status: input.status !== undefined ? input.status : s.status,
+        name: payload.name !== undefined ? payload.name.trim() : s.name,
+        phone: payload.phone !== undefined ? payload.phone.trim() : s.phone,
+        parentName: payload.parentName !== undefined ? payload.parentName.trim() : s.parentName,
+        parentPhone: payload.parentPhone !== undefined ? payload.parentPhone.trim() : s.parentPhone,
+        monthlyFee: payload.monthlyFee !== undefined ? Number(payload.monthlyFee) : s.monthlyFee,
+        photoUrl: payload.photoUrl !== undefined ? payload.photoUrl : s.photoUrl,
+        status: payload.status !== undefined ? payload.status : s.status,
         updatedAt: new Date().toISOString(),
       };
       return updatedRecord;
@@ -219,9 +139,14 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const toggleStudentStatus = async (id: string): Promise<void> => {
+    let targetStudent = students.find((s) => s.id === id);
+    if (!targetStudent) return;
+
+    const newStatus: StudentStatus = targetStudent.status === 'active' ? 'inactive' : 'active';
+    await StudentService.updateStudent(id, { status: newStatus });
+
     const updatedList = students.map((s) => {
       if (s.id !== id) return s;
-      const newStatus: StudentStatus = s.status === 'active' ? 'inactive' : 'active';
       return {
         ...s,
         status: newStatus,
