@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   FlatList,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,103 +12,43 @@ import {
 } from 'react-native';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Input } from '../../components/common/Input';
+import { LoadingState } from '../../components/common/LoadingState';
 import { StudentCard } from '../../components/students/StudentCard';
 import { COLORS, RADIUS, SPACING } from '../../constants/theme';
-import { Student, StudentFeeStatus } from '../../types/student';
-
-// Phase 1 sample directory data
-const INITIAL_STUDENTS: Student[] = [
-  {
-    id: 'stu-1',
-    studentCode: 'STU-2026-0001',
-    name: 'Aarav Sharma',
-    phone: '+919876543210',
-    parentName: 'Ramesh Sharma',
-    parentPhone: '+919876543211',
-    monthlyFee: 3500,
-    status: 'active',
-    admissionDate: '2026-01-10',
-    feeStatus: 'overdue',
-    lastPaymentDate: '2026-01-10',
-    nextDeadline: '2026-02-09',
-    daysRemaining: -4,
-    outstandingAmount: 3500,
-    createdAt: '2026-01-10T10:00:00Z',
-    updatedAt: '2026-02-09T10:00:00Z',
-  },
-  {
-    id: 'stu-2',
-    studentCode: 'STU-2026-0002',
-    name: 'Diya Patel',
-    phone: '+919876500001',
-    parentName: 'Kirit Patel',
-    parentPhone: '+919876500002',
-    monthlyFee: 4000,
-    status: 'active',
-    admissionDate: '2026-01-12',
-    feeStatus: 'overdue',
-    lastPaymentDate: '2026-01-12',
-    nextDeadline: '2026-02-11',
-    daysRemaining: -2,
-    outstandingAmount: 4000,
-    createdAt: '2026-01-12T10:00:00Z',
-    updatedAt: '2026-02-11T10:00:00Z',
-  },
-  {
-    id: 'stu-3',
-    studentCode: 'STU-2026-0003',
-    name: 'Vihaan Verma',
-    phone: '+919876500003',
-    monthlyFee: 3500,
-    status: 'active',
-    admissionDate: '2026-01-14',
-    feeStatus: 'paid',
-    lastPaymentDate: '2026-02-13',
-    nextDeadline: '2026-03-15',
-    daysRemaining: 28,
-    outstandingAmount: 0,
-    createdAt: '2026-01-14T10:00:00Z',
-    updatedAt: '2026-02-13T10:00:00Z',
-  },
-  {
-    id: 'stu-4',
-    studentCode: 'STU-2026-0004',
-    name: 'Ananya Iyer',
-    phone: '+919876500004',
-    monthlyFee: 4500,
-    status: 'active',
-    admissionDate: '2026-01-15',
-    feeStatus: 'due',
-    lastPaymentDate: '2026-01-15',
-    nextDeadline: '2026-02-14',
-    daysRemaining: 1,
-    outstandingAmount: 4500,
-    createdAt: '2026-01-15T10:00:00Z',
-    updatedAt: '2026-02-12T10:00:00Z',
-  },
-];
+import { useStudents } from '../../context/StudentContext';
+import { StudentFeeStatus } from '../../types/student';
 
 type FilterType = 'all' | StudentFeeStatus | 'inactive';
 
 export default function StudentsScreen() {
   const router = useRouter();
+  const { students, loading, refreshStudents } = useStudents();
+
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshStudents();
+    setRefreshing(false);
+  };
 
   const filteredStudents = useMemo(() => {
-    return INITIAL_STUDENTS.filter((item) => {
+    return students.filter((item) => {
+      const query = search.toLowerCase();
       const matchSearch =
-        item.name.toLowerCase().includes(search.toLowerCase()) ||
-        item.phone.includes(search) ||
-        item.studentCode.toLowerCase().includes(search.toLowerCase());
+        item.name.toLowerCase().includes(query) ||
+        item.phone.includes(query) ||
+        item.studentCode.toLowerCase().includes(query);
 
       if (!matchSearch) return false;
 
       if (activeFilter === 'all') return true;
       if (activeFilter === 'inactive') return item.status === 'inactive';
-      return item.feeStatus === activeFilter;
+      return item.feeStatus === activeFilter && item.status === 'active';
     });
-  }, [search, activeFilter]);
+  }, [students, search, activeFilter]);
 
   const filterTabs: { label: string; value: FilterType }[] = [
     { label: 'All', value: 'all' },
@@ -116,6 +57,10 @@ export default function StudentsScreen() {
     { label: 'Paid', value: 'paid' },
     { label: 'Inactive', value: 'inactive' },
   ];
+
+  if (loading && !refreshing) {
+    return <LoadingState message="Loading student records..." />;
+  }
 
   return (
     <View style={styles.container}>
@@ -164,6 +109,14 @@ export default function StudentsScreen() {
         data={filteredStudents}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
+          />
+        }
         renderItem={({ item }) => (
           <StudentCard
             student={item}

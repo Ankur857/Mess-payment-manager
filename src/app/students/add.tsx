@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
@@ -16,9 +16,11 @@ import {
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../constants/theme';
+import { useStudents } from '../../context/StudentContext';
 
 export default function AddStudentScreen() {
   const router = useRouter();
+  const { addStudent, peekNextStudentCode } = useStudents();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -26,14 +28,19 @@ export default function AddStudentScreen() {
   const [parentPhone, setParentPhone] = useState('');
   const [monthlyFee, setMonthlyFee] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [previewCode, setPreviewCode] = useState('STU-2026-0001');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    peekNextStudentCode().then(setPreviewCode).catch(() => {});
+  }, []);
 
   const handlePickImage = async () => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission Denied', 'Camera roll permission is required to upload student photo.');
+        Alert.alert('Permission Denied', 'Camera roll permission is required to select student photo.');
         return;
       }
 
@@ -56,7 +63,7 @@ export default function AddStudentScreen() {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission Denied', 'Camera permission is required to take photo.');
+        Alert.alert('Permission Denied', 'Camera permission is required to capture photo.');
         return;
       }
 
@@ -70,23 +77,25 @@ export default function AddStudentScreen() {
         setPhotoUri(result.assets[0].uri);
       }
     } catch {
-      Alert.alert('Error', 'Failed to take photo.');
+      Alert.alert('Error', 'Failed to capture photo.');
     }
   };
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!name.trim()) errs.name = 'Student name is required';
-    if (!phone.trim()) {
+    if (!name.trim()) errs.name = 'Student full name is required';
+
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (!cleanPhone) {
       errs.phone = 'Phone number is required';
-    } else if (phone.trim().length < 10) {
-      errs.phone = 'Enter a valid 10-digit phone number';
+    } else if (cleanPhone.length < 10) {
+      errs.phone = 'Enter valid 10-digit mobile number';
     }
 
     if (!monthlyFee.trim()) {
       errs.monthlyFee = 'Monthly fee amount is required';
     } else if (isNaN(Number(monthlyFee)) || Number(monthlyFee) <= 0) {
-      errs.monthlyFee = 'Fee must be a positive number';
+      errs.monthlyFee = 'Fee must be a valid positive amount';
     }
 
     setErrors(errs);
@@ -97,13 +106,26 @@ export default function AddStudentScreen() {
     if (!validate()) return;
 
     setLoading(true);
-    // Phase 1 navigation placeholder - will save to Supabase in Phase 3
-    setTimeout(() => {
+    try {
+      const created = await addStudent({
+        name: name.trim(),
+        phone: phone.trim(),
+        parentName: parentName.trim() || undefined,
+        parentPhone: parentPhone.trim() || undefined,
+        monthlyFee: Number(monthlyFee),
+        photoUrl: photoUri || undefined,
+      });
+
       setLoading(false);
-      Alert.alert('Success', 'Student added successfully!', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
-    }, 600);
+      Alert.alert(
+        'Student Registered 🎉',
+        `${created.name} (${created.studentCode}) was successfully added with monthly fee ₹${created.monthlyFee.toLocaleString()}.`,
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } catch {
+      setLoading(false);
+      Alert.alert('Error', 'Failed to register student. Please try again.');
+    }
   };
 
   return (
@@ -140,7 +162,7 @@ export default function AddStudentScreen() {
         <View style={styles.codeBanner}>
           <Ionicons name="barcode-outline" size={18} color={COLORS.primary} />
           <Text style={styles.codeBannerText}>
-            Unique Code: <Text style={styles.codeHighlight}>STU-2026-0005</Text> (Auto-assigned)
+            Assigned Code: <Text style={styles.codeHighlight}>{previewCode}</Text> (Immutable)
           </Text>
         </View>
 
@@ -164,7 +186,7 @@ export default function AddStudentScreen() {
             onChangeText={setPhone}
             keyboardType="phone-pad"
             error={errors.phone}
-            helperText="WhatsApp reminders will be addressed to this number"
+            helperText="WhatsApp fee reminders will be sent to this number"
             leftIcon={<Ionicons name="call-outline" size={18} color={COLORS.textSecondary} />}
           />
 
