@@ -3,14 +3,16 @@ import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
+import { AuthProvider } from '../context/AuthContext';
 import { StudentProvider } from '../context/StudentContext';
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <StudentProvider>
-        <StatusBar style="light" />
-        <Stack
+      <AuthProvider>
+        <StudentProvider>
+          <StatusBar style="light" />
+          <Stack
         screenOptions={{
           headerStyle: {
             backgroundColor: COLORS.header,
@@ -77,7 +79,8 @@ export default function RootLayout() {
           }}
         />
       </Stack>
-      </StudentProvider>
+        </StudentProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

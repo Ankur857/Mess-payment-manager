@@ -12,9 +12,12 @@ import {
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../constants/theme';
+import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { signIn, isMockMode } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,15 +32,13 @@ export default function LoginScreen() {
     setError(null);
     setLoading(true);
 
-    try {
-      // Phase 1 navigation placeholder - will connect to Supabase Auth in Phase 3
-      setTimeout(() => {
-        setLoading(false);
-        router.replace('/(tabs)');
-      }, 600);
-    } catch {
-      setLoading(false);
-      setError('Login failed. Please check credentials.');
+    const result = await signIn(email.trim(), password);
+    setLoading(false);
+
+    if (result.error) {
+      setError(result.error);
+    } else {
+      router.replace('/(tabs)');
     }
   };
 
@@ -65,6 +66,15 @@ export default function LoginScreen() {
           <Text style={styles.cardDescription}>
             Enter your authorized credentials to access student records and fee ledger.
           </Text>
+
+          {isMockMode ? (
+            <View style={styles.mockBanner}>
+              <Ionicons name="information-circle" size={16} color={COLORS.primaryDark} />
+              <Text style={styles.mockBannerText}>
+                Dev Mode: Login with <Text style={styles.boldText}>admin@feemanager.com</Text> / password (min 6 chars). Connect Supabase in .env when ready.
+              </Text>
+            </View>
+          ) : null}
 
           {error ? (
             <View style={styles.errorBox}>
@@ -165,8 +175,28 @@ const styles = StyleSheet.create({
   cardDescription: {
     fontSize: 13,
     color: COLORS.textSecondary,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
     lineHeight: 18,
+  },
+  mockBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primaryLight,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+  },
+  mockBannerText: {
+    flex: 1,
+    fontSize: 11,
+    color: COLORS.primaryDark,
+    lineHeight: 16,
+  },
+  boldText: {
+    fontWeight: '700',
   },
   errorBox: {
     flexDirection: 'row',
