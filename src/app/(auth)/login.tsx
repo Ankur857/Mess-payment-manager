@@ -33,7 +33,7 @@ export default function LoginScreen() {
       // Phase 1 navigation placeholder - will connect to Supabase Auth in Phase 3
       setTimeout(() => {
         setLoading(false);
-        router.replace('/(tabs)/index');
+        router.replace('/(tabs)');
       }, 600);
     } catch {
       setLoading(false);

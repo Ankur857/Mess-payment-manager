@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { CreateStudentInput, Student, StudentFeeStatus, UpdateStudentInput } from '../types/student';
+import { CreateStudentInput, Student, StudentFeeStatus, StudentStatus, UpdateStudentInput } from '../types/student';
 import { addCalendarDays, getDaysRemaining, getTodayDateString } from '../utils/date';
 import { StorageService } from '../utils/storage';
 import { generateStudentCode } from '../utils/studentCode';
@@ -221,7 +221,7 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const toggleStudentStatus = async (id: string): Promise<void> => {
     const updatedList = students.map((s) => {
       if (s.id !== id) return s;
-      const newStatus = s.status === 'active' ? 'inactive' : 'active';
+      const newStatus: StudentStatus = s.status === 'active' ? 'inactive' : 'active';
       return {
         ...s,
         status: newStatus,
