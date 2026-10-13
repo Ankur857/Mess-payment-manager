@@ -120,7 +120,7 @@ export default function DashboardScreen() {
             student={student}
             onPress={() =>
               router.push({
-                pathname: '/students/[id]/index',
+                pathname: '/students/[id]',
                 params: { id: student.id },
               })
             }
