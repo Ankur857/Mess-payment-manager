@@ -13,33 +13,16 @@ import {
 import { Badge } from '../../../components/common/Badge';
 import { Button } from '../../../components/common/Button';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
+import { LoadingState } from '../../../components/common/LoadingState';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../../constants/theme';
+import { useStudents } from '../../../context/StudentContext';
 import { Payment } from '../../../types/payment';
-import { Student } from '../../../types/student';
+import { formatDisplayDate } from '../../../utils/date';
 
-// Placeholder student profile data
-const MOCK_STUDENT: Student = {
-  id: 'stu-1',
-  studentCode: 'STU-2026-0001',
-  name: 'Aarav Sharma',
-  phone: '+919876543210',
-  parentName: 'Ramesh Sharma',
-  parentPhone: '+919876543211',
-  monthlyFee: 3500,
-  status: 'active',
-  admissionDate: '2026-01-10',
-  feeStatus: 'overdue',
-  lastPaymentDate: '2026-01-10',
-  nextDeadline: '2026-02-09',
-  daysRemaining: -4,
-  outstandingAmount: 3500,
-  createdAt: '2026-01-10T10:00:00Z',
-  updatedAt: '2026-02-09T10:00:00Z',
-};
-
+// Sample payment record for Phase 2 display
 const MOCK_STUDENT_PAYMENTS: Payment[] = [
   {
-    id: 'pay-1',
+    id: 'pay-init',
     studentId: 'stu-1',
     amount: 3500,
     paymentDate: '2026-01-10',
@@ -53,21 +36,45 @@ const MOCK_STUDENT_PAYMENTS: Payment[] = [
 export default function StudentProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const [student, setStudent] = useState<Student>(MOCK_STUDENT);
+  const { getStudentById, toggleStudentStatus, loading } = useStudents();
   const [archiveVisible, setArchiveVisible] = useState(false);
 
-  const handleDeactivate = () => {
-    setStudent((prev) => ({
-      ...prev,
-      status: prev.status === 'active' ? 'inactive' : 'active',
-    }));
-    setArchiveVisible(false);
-    Alert.alert(
-      'Updated',
-      student.status === 'active'
-        ? 'Student has been deactivated. Automatic reminders are paused.'
-        : 'Student has been reactivated.'
+  const student = getStudentById(String(id));
+
+  if (loading) {
+    return <LoadingState message="Loading profile..." />;
+  }
+
+  if (!student) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={48} color={COLORS.error} />
+        <Text style={styles.errorTitle}>Student Not Found</Text>
+        <Text style={styles.errorSubtitle}>
+          The requested student ID does not match any registered records.
+        </Text>
+        <Button
+          title="Back to Directory"
+          onPress={() => router.back()}
+          style={{ marginTop: SPACING.lg }}
+        />
+      </View>
     );
+  }
+
+  const handleToggleStatus = async () => {
+    try {
+      await toggleStudentStatus(student.id);
+      setArchiveVisible(false);
+      Alert.alert(
+        'Status Updated',
+        student.status === 'active'
+          ? 'Student has been deactivated. Automatic reminders are paused.'
+          : 'Student has been reactivated.'
+      );
+    } catch {
+      Alert.alert('Error', 'Failed to update student status.');
+    }
   };
 
   return (
@@ -108,7 +115,7 @@ export default function StudentProfileScreen() {
             onPress={() =>
               router.push({
                 pathname: '/students/[id]/record-payment',
-                params: { id: String(id || student.id) },
+                params: { id: student.id },
               })
             }
             style={styles.actionButton}
@@ -120,7 +127,7 @@ export default function StudentProfileScreen() {
             onPress={() =>
               router.push({
                 pathname: '/students/[id]/edit',
-                params: { id: String(id || student.id) },
+                params: { id: student.id },
               })
             }
             style={styles.editButton}
@@ -138,11 +145,20 @@ export default function StudentProfileScreen() {
         <View style={styles.billingGrid}>
           <View style={styles.billingItem}>
             <Text style={styles.billingLabel}>Last Payment Date</Text>
-            <Text style={styles.billingValue}>{student.lastPaymentDate || 'None'}</Text>
+            <Text style={styles.billingValue}>
+              {student.lastPaymentDate ? formatDisplayDate(student.lastPaymentDate) : 'None Recorded'}
+            </Text>
           </View>
           <View style={styles.billingItem}>
             <Text style={styles.billingLabel}>Next Deadline (+30 Days)</Text>
-            <Text style={[styles.billingValue, styles.overdueDate]}>{student.nextDeadline}</Text>
+            <Text
+              style={[
+                styles.billingValue,
+                student.feeStatus === 'overdue' ? styles.overdueDate : null,
+              ]}
+            >
+              {formatDisplayDate(student.nextDeadline)}
+            </Text>
           </View>
           <View style={styles.billingItem}>
             <Text style={styles.billingLabel}>Days Remaining</Text>
@@ -158,7 +174,7 @@ export default function StudentProfileScreen() {
             </Text>
           </View>
           <View style={styles.billingItem}>
-            <Text style={styles.billingLabel}>Outstanding Amount</Text>
+            <Text style={styles.billingLabel}>Outstanding Balance</Text>
             <Text style={[styles.billingValue, styles.outstandingValue]}>
               ₹{student.outstandingAmount.toLocaleString()}
             </Text>
@@ -168,14 +184,14 @@ export default function StudentProfileScreen() {
         <View style={styles.cycleNotice}>
           <Ionicons name="information-circle-outline" size={16} color={COLORS.primaryDark} />
           <Text style={styles.cycleNoticeText}>
-            When admin marks &ldquo;Payment Done&rdquo;, next deadline is set to +30 calendar days. WhatsApp overdue notice sends on Day 31.
+            Billing deadlines advance 30 days upon qualifying payments. Automated reminders trigger on Day 31 for overdue accounts.
           </Text>
         </View>
       </View>
 
       {/* Contact Details Card */}
       <View style={styles.infoCard}>
-        <Text style={styles.cardTitle}>Contact Information</Text>
+        <Text style={styles.cardTitle}>Contact Details</Text>
 
         <View style={styles.infoRow}>
           <View style={styles.infoIconBox}>
@@ -214,7 +230,7 @@ export default function StudentProfileScreen() {
 
       {/* Payment Ledger for This Student */}
       <View style={styles.infoCard}>
-        <Text style={styles.cardTitle}>Payment History</Text>
+        <Text style={styles.cardTitle}>Payment Ledger</Text>
         {MOCK_STUDENT_PAYMENTS.map((payment) => (
           <View key={payment.id} style={styles.historyRow}>
             <View>
@@ -253,12 +269,12 @@ export default function StudentProfileScreen() {
         title={student.status === 'active' ? 'Deactivate Student' : 'Reactivate Student'}
         message={
           student.status === 'active'
-            ? 'Deactivating this student preserves all payment records while stopping automated WhatsApp reminders.'
-            : 'Reactivating this student will restore active billing cycles and reminder eligibility.'
+            ? 'Deactivating preserves all payment history while pausing automated reminders.'
+            : 'Reactivating restores active status and reminder eligibility.'
         }
         confirmText={student.status === 'active' ? 'Deactivate' : 'Reactivate'}
         isDestructive={student.status === 'active'}
-        onConfirm={handleDeactivate}
+        onConfirm={handleToggleStatus}
         onCancel={() => setArchiveVisible(false)}
       />
     </ScrollView>
@@ -273,6 +289,26 @@ const styles = StyleSheet.create({
   content: {
     padding: SPACING.lg,
     paddingBottom: SPACING.xxxl,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+    backgroundColor: COLORS.background,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginTop: SPACING.md,
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 20,
   },
   profileHeaderCard: {
     backgroundColor: COLORS.card,

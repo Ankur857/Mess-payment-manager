@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
@@ -15,23 +15,50 @@ import {
 } from 'react-native';
 import { Button } from '../../../components/common/Button';
 import { Input } from '../../../components/common/Input';
+import { LoadingState } from '../../../components/common/LoadingState';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../../constants/theme';
+import { useStudents } from '../../../context/StudentContext';
 
 export default function EditStudentScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { getStudentById, updateStudent, loading: contextLoading } = useStudents();
 
-  // Initial values populated from existing record
-  const [name, setName] = useState('Aarav Sharma');
-  const [phone, setPhone] = useState('+919876543210');
-  const [parentName, setParentName] = useState('Ramesh Sharma');
-  const [parentPhone, setParentPhone] = useState('+919876543211');
-  const [monthlyFee, setMonthlyFee] = useState('3500');
+  const student = getStudentById(String(id));
+
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [parentName, setParentName] = useState('');
+  const [parentPhone, setParentPhone] = useState('');
+  const [monthlyFee, setMonthlyFee] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const studentCode = 'STU-2026-0001'; // Immutable identifier
+  useEffect(() => {
+    if (student) {
+      setName(student.name);
+      setPhone(student.phone);
+      setParentName(student.parentName || '');
+      setParentPhone(student.parentPhone || '');
+      setMonthlyFee(String(student.monthlyFee));
+      setPhotoUri(student.photoUrl || null);
+    }
+  }, [student]);
+
+  if (contextLoading) {
+    return <LoadingState message="Loading student..." />;
+  }
+
+  if (!student) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={48} color={COLORS.error} />
+        <Text style={styles.errorTitle}>Student Not Found</Text>
+        <Button title="Go Back" onPress={() => router.back()} style={{ marginTop: SPACING.md }} />
+      </View>
+    );
+  }
 
   const handlePickImage = async () => {
     try {
@@ -61,16 +88,28 @@ export default function EditStudentScreen() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return;
     setLoading(true);
 
-    setTimeout(() => {
+    try {
+      await updateStudent(student.id, {
+        name: name.trim(),
+        phone: phone.trim(),
+        parentName: parentName.trim() || undefined,
+        parentPhone: parentPhone.trim() || undefined,
+        monthlyFee: Number(monthlyFee),
+        photoUrl: photoUri || undefined,
+      });
+
       setLoading(false);
       Alert.alert('Saved', 'Student details updated successfully.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
-    }, 600);
+    } catch {
+      setLoading(false);
+      Alert.alert('Error', 'Failed to update student.');
+    }
   };
 
   return (
@@ -84,7 +123,7 @@ export default function EditStudentScreen() {
           <Ionicons name="lock-closed-outline" size={18} color={COLORS.primary} />
           <View>
             <Text style={styles.codeLabel}>Student Code (Immutable Database Key)</Text>
-            <Text style={styles.codeValue}>{studentCode}</Text>
+            <Text style={styles.codeValue}>{student.studentCode}</Text>
           </View>
         </View>
 
@@ -178,6 +217,19 @@ const styles = StyleSheet.create({
   content: {
     padding: SPACING.lg,
     paddingBottom: SPACING.xxxl,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+    backgroundColor: COLORS.background,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginTop: SPACING.md,
   },
   codeBanner: {
     flexDirection: 'row',
