@@ -10,58 +10,12 @@ import {
   View,
 } from 'react-native';
 import { Button } from '../../components/common/Button';
+import { EmptyState } from '../../components/common/EmptyState';
 import { FeeSummaryCard } from '../../components/dashboard/FeeSummaryCard';
 import { StudentCard } from '../../components/students/StudentCard';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../constants/theme';
+import { useStudents } from '../../context/StudentContext';
 import { FeeSummary, Payment } from '../../types/payment';
-import { Student } from '../../types/student';
-
-// Placeholder initial data for Phase 1 UI validation
-const INITIAL_SUMMARY: FeeSummary = {
-  totalActiveStudents: 42,
-  totalCollected: 128500,
-  totalOutstanding: 21500,
-  dueSoonCount: 5,
-  overdueCount: 3,
-  upcomingRemindersCount: 3,
-};
-
-const SAMPLE_OVERDUE_STUDENTS: Student[] = [
-  {
-    id: 'stu-1',
-    studentCode: 'STU-2026-0001',
-    name: 'Aarav Sharma',
-    phone: '+919876543210',
-    parentName: 'Ramesh Sharma',
-    parentPhone: '+919876543211',
-    monthlyFee: 3500,
-    status: 'active',
-    admissionDate: '2026-01-10',
-    feeStatus: 'overdue',
-    lastPaymentDate: '2026-01-10',
-    nextDeadline: '2026-02-09',
-    daysRemaining: -4,
-    outstandingAmount: 3500,
-    createdAt: '2026-01-10T10:00:00Z',
-    updatedAt: '2026-02-09T10:00:00Z',
-  },
-  {
-    id: 'stu-2',
-    studentCode: 'STU-2026-0002',
-    name: 'Diya Patel',
-    phone: '+919876500001',
-    monthlyFee: 4000,
-    status: 'active',
-    admissionDate: '2026-01-12',
-    feeStatus: 'overdue',
-    lastPaymentDate: '2026-01-12',
-    nextDeadline: '2026-02-11',
-    daysRemaining: -2,
-    outstandingAmount: 4000,
-    createdAt: '2026-01-12T10:00:00Z',
-    updatedAt: '2026-02-11T10:00:00Z',
-  },
-];
 
 const RECENT_PAYMENTS: Payment[] = [
   {
@@ -89,11 +43,27 @@ const RECENT_PAYMENTS: Payment[] = [
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { students, refreshStudents } = useStudents();
   const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
+    await refreshStudents();
+    setRefreshing(false);
+  };
+
+  const activeStudents = students.filter((s) => s.status === 'active');
+  const overdueStudents = activeStudents.filter((s) => s.feeStatus === 'overdue');
+  const dueSoonStudents = activeStudents.filter((s) => s.feeStatus === 'due');
+  const totalOutstanding = activeStudents.reduce((sum, s) => sum + s.outstandingAmount, 0);
+
+  const dynamicSummary: FeeSummary = {
+    totalActiveStudents: activeStudents.length,
+    totalCollected: 128500,
+    totalOutstanding,
+    dueSoonCount: dueSoonStudents.length,
+    overdueCount: overdueStudents.length,
+    upcomingRemindersCount: overdueStudents.length,
   };
 
   return (
@@ -127,7 +97,7 @@ export default function DashboardScreen() {
       </View>
 
       {/* Main KPI Overview Card */}
-      <FeeSummaryCard summary={INITIAL_SUMMARY} />
+      <FeeSummaryCard summary={dynamicSummary} />
 
       {/* Overdue Students Alert Section */}
       <View style={styles.sectionHeader}>
@@ -135,7 +105,7 @@ export default function DashboardScreen() {
           <Ionicons name="alert-circle" size={20} color={COLORS.status.overdue} />
           <Text style={styles.sectionTitle}>Overdue Students</Text>
           <View style={styles.badgeCount}>
-            <Text style={styles.badgeCountText}>{SAMPLE_OVERDUE_STUDENTS.length}</Text>
+            <Text style={styles.badgeCountText}>{overdueStudents.length}</Text>
           </View>
         </View>
         <TouchableOpacity onPress={() => router.push('/(tabs)/students')}>
@@ -143,24 +113,33 @@ export default function DashboardScreen() {
         </TouchableOpacity>
       </View>
 
-      {SAMPLE_OVERDUE_STUDENTS.map((student) => (
-        <StudentCard
-          key={student.id}
-          student={student}
-          onPress={() =>
-            router.push({
-              pathname: '/students/[id]/index',
-              params: { id: student.id },
-            })
-          }
-          onRecordPayment={() =>
-            router.push({
-              pathname: '/students/[id]/record-payment',
-              params: { id: student.id },
-            })
-          }
+      {overdueStudents.length > 0 ? (
+        overdueStudents.map((student) => (
+          <StudentCard
+            key={student.id}
+            student={student}
+            onPress={() =>
+              router.push({
+                pathname: '/students/[id]/index',
+                params: { id: student.id },
+              })
+            }
+            onRecordPayment={() =>
+              router.push({
+                pathname: '/students/[id]/record-payment',
+                params: { id: student.id },
+              })
+            }
+          />
+        ))
+      ) : (
+        <EmptyState
+          icon="checkmark-circle-outline"
+          title="No Overdue Fees!"
+          description="All active students are up to date on their payments."
+          style={{ paddingVertical: SPACING.lg }}
         />
-      ))}
+      )}
 
       {/* Recent Payments Section */}
       <View style={[styles.sectionHeader, { marginTop: SPACING.lg }]}>
