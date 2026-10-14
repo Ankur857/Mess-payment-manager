@@ -44,7 +44,10 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "node --test scripts/test-billing-cycle.mjs && node scripts/security-audit.mjs",
+    "test:billing": "node --test scripts/test-billing-cycle.mjs",
+    "test:security": "node scripts/security-audit.mjs"
   },
   "private": true
 }
