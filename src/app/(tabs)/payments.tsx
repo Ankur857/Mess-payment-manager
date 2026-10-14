@@ -3,69 +3,30 @@ import React, { useState } from 'react';
 import {
   FlatList,
   Platform,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { EmptyState } from '../../components/common/EmptyState';
+import { LoadingState } from '../../components/common/LoadingState';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../constants/theme';
-import { Payment } from '../../types/payment';
-
-const SAMPLE_PAYMENTS: Payment[] = [
-  {
-    id: 'pay-1',
-    studentId: 'stu-3',
-    studentName: 'Vihaan Verma',
-    studentCode: 'STU-2026-0003',
-    amount: 3500,
-    paymentDate: '2026-02-13',
-    paymentMethod: 'upi',
-    transactionRef: 'UPI/6044192834',
-    notes: 'February regular fee paid in full',
-    createdAt: '2026-02-13T14:30:00Z',
-  },
-  {
-    id: 'pay-2',
-    studentId: 'stu-4',
-    studentName: 'Ananya Iyer',
-    studentCode: 'STU-2026-0004',
-    amount: 4500,
-    paymentDate: '2026-02-12',
-    paymentMethod: 'cash',
-    notes: 'Received by Cash Desk',
-    createdAt: '2026-02-12T11:15:00Z',
-  },
-  {
-    id: 'pay-3',
-    studentId: 'stu-1',
-    studentName: 'Aarav Sharma',
-    studentCode: 'STU-2026-0001',
-    amount: 3500,
-    paymentDate: '2026-01-10',
-    paymentMethod: 'bank_transfer',
-    transactionRef: 'IMPS/99812401',
-    notes: 'January installment',
-    createdAt: '2026-01-10T10:00:00Z',
-  },
-  {
-    id: 'pay-4',
-    studentId: 'stu-2',
-    studentName: 'Diya Patel',
-    studentCode: 'STU-2026-0002',
-    amount: 2000,
-    paymentDate: '2026-01-12',
-    paymentMethod: 'upi',
-    transactionRef: 'UPI/7712498213',
-    notes: 'Partial payment of 4000 fee',
-    createdAt: '2026-01-12T10:00:00Z',
-  },
-];
+import { usePayments } from '../../context/PaymentContext';
+import { formatDisplayDate } from '../../utils/date';
 
 export default function PaymentsScreen() {
+  const { payments, loading, refreshPayments } = usePayments();
   const [selectedMethod, setSelectedMethod] = useState<string>('all');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const filteredPayments = SAMPLE_PAYMENTS.filter((pay) => {
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshPayments();
+    setRefreshing(false);
+  };
+
+  const filteredPayments = payments.filter((pay) => {
     if (selectedMethod === 'all') return true;
     return pay.paymentMethod === selectedMethod;
   });
@@ -85,12 +46,16 @@ export default function PaymentsScreen() {
     }
   };
 
+  if (loading && !refreshing) {
+    return <LoadingState message="Loading payment ledger..." />;
+  }
+
   return (
     <View style={styles.container}>
       {/* Ledger Summary Header */}
       <View style={styles.summaryBar}>
         <View>
-          <Text style={styles.summaryLabel}>Total Payments Shown</Text>
+          <Text style={styles.summaryLabel}>Total Collected in Ledger</Text>
           <Text style={styles.summaryAmount}>₹{totalAmount.toLocaleString()}</Text>
         </View>
         <View style={styles.recordBadge}>
@@ -129,12 +94,20 @@ export default function PaymentsScreen() {
         data={filteredPayments}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
+          />
+        }
         renderItem={({ item }) => (
           <View style={styles.paymentCard}>
             <View style={styles.cardTopRow}>
               <View style={styles.studentInfo}>
-                <Text style={styles.studentName}>{item.studentName}</Text>
-                <Text style={styles.studentCode}>{item.studentCode}</Text>
+                <Text style={styles.studentName}>{item.studentName || 'Student Payment'}</Text>
+                <Text style={styles.studentCode}>{item.studentCode || ''}</Text>
               </View>
               <Text style={styles.amount}>+₹{item.amount.toLocaleString()}</Text>
             </View>
@@ -152,7 +125,7 @@ export default function PaymentsScreen() {
               </View>
               <View style={styles.dateRow}>
                 <Ionicons name="calendar-outline" size={13} color={COLORS.textSecondary} />
-                <Text style={styles.dateText}>{item.paymentDate}</Text>
+                <Text style={styles.dateText}>{formatDisplayDate(item.paymentDate)}</Text>
               </View>
             </View>
 
@@ -168,7 +141,7 @@ export default function PaymentsScreen() {
           <EmptyState
             icon="receipt-outline"
             title="No Payment Records"
-            description="No transactions match the selected filter."
+            description="No transactions match the selected payment method filter."
           />
         }
       />

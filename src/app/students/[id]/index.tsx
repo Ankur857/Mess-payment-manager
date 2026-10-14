@@ -15,33 +15,21 @@ import { Button } from '../../../components/common/Button';
 import { ConfirmDialog } from '../../../components/common/ConfirmDialog';
 import { LoadingState } from '../../../components/common/LoadingState';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../../constants/theme';
+import { usePayments } from '../../../context/PaymentContext';
 import { useStudents } from '../../../context/StudentContext';
-import { Payment } from '../../../types/payment';
 import { formatDisplayDate } from '../../../utils/date';
-
-// Sample payment record for Phase 2 display
-const MOCK_STUDENT_PAYMENTS: Payment[] = [
-  {
-    id: 'pay-init',
-    studentId: 'stu-1',
-    amount: 3500,
-    paymentDate: '2026-01-10',
-    paymentMethod: 'bank_transfer',
-    transactionRef: 'IMPS/99812401',
-    notes: 'Admission month fee paid',
-    createdAt: '2026-01-10T10:00:00Z',
-  },
-];
 
 export default function StudentProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { getStudentById, toggleStudentStatus, loading } = useStudents();
+  const { getStudentById, toggleStudentStatus, loading: studentLoading } = useStudents();
+  const { getStudentPayments } = usePayments();
   const [archiveVisible, setArchiveVisible] = useState(false);
 
   const student = getStudentById(String(id));
+  const studentPayments = student ? getStudentPayments(student.id) : [];
 
-  if (loading) {
+  if (studentLoading) {
     return <LoadingState message="Loading profile..." />;
   }
 
@@ -231,17 +219,21 @@ export default function StudentProfileScreen() {
       {/* Payment Ledger for This Student */}
       <View style={styles.infoCard}>
         <Text style={styles.cardTitle}>Payment Ledger</Text>
-        {MOCK_STUDENT_PAYMENTS.map((payment) => (
-          <View key={payment.id} style={styles.historyRow}>
-            <View>
-              <Text style={styles.historyAmount}>+₹{payment.amount.toLocaleString()}</Text>
-              <Text style={styles.historyDate}>
-                {payment.paymentDate} • {payment.paymentMethod.toUpperCase()}
-              </Text>
+        {studentPayments.length > 0 ? (
+          studentPayments.map((payment) => (
+            <View key={payment.id} style={styles.historyRow}>
+              <View>
+                <Text style={styles.historyAmount}>+₹{payment.amount.toLocaleString()}</Text>
+                <Text style={styles.historyDate}>
+                  {formatDisplayDate(payment.paymentDate)} • {payment.paymentMethod.replace('_', ' ').toUpperCase()}
+                </Text>
+              </View>
+              <Text style={styles.historyRef}>{payment.transactionRef || 'Direct'}</Text>
             </View>
-            <Text style={styles.historyRef}>{payment.transactionRef || 'Cash'}</Text>
-          </View>
-        ))}
+          ))
+        ) : (
+          <Text style={styles.noPaymentsText}>No payments recorded yet for this student.</Text>
+        )}
       </View>
 
       {/* Deactivate / Archive Action */}
@@ -508,6 +500,12 @@ const styles = StyleSheet.create({
   historyRef: {
     fontSize: 12,
     color: COLORS.textMuted,
+  },
+  noPaymentsText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
+    paddingVertical: SPACING.md,
   },
   deactivateBtn: {
     flexDirection: 'row',
