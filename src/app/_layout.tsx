@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
 import { AuthProvider } from '../context/AuthContext';
 import { PaymentProvider } from '../context/PaymentContext';
+import { ReminderProvider } from '../context/ReminderContext';
 import { StudentProvider } from '../context/StudentContext';
 
 export default function RootLayout() {
@@ -13,8 +14,9 @@ export default function RootLayout() {
       <AuthProvider>
         <StudentProvider>
           <PaymentProvider>
-            <StatusBar style="light" />
-            <Stack
+            <ReminderProvider>
+              <StatusBar style="light" />
+              <Stack
         screenOptions={{
           headerStyle: {
             backgroundColor: COLORS.header,
@@ -81,6 +83,7 @@ export default function RootLayout() {
           }}
         />
       </Stack>
+              </ReminderProvider>
             </PaymentProvider>
         </StudentProvider>
       </AuthProvider>

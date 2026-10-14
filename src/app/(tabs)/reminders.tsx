@@ -1,83 +1,91 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
+  Alert,
   FlatList,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { EmptyState } from '../../components/common/EmptyState';
-import { ReminderStatusBadge } from '../../components/reminders/ReminderStatusBadge';
-import { COLORS, RADIUS, SHADOWS, SPACING } from '../../constants/theme';
-import { ReminderLog, ReminderStatus } from '../../types/reminder';
-
-const SAMPLE_REMINDERS: ReminderLog[] = [
-  {
-    id: 'rem-1',
-    studentId: 'stu-1',
-    studentName: 'Aarav Sharma',
-    studentCode: 'STU-2026-0001',
-    studentPhone: '+919876543210',
-    billingCycleId: 'bc-1',
-    dueDate: '2026-02-09',
-    overdueDayCount: 31,
-    pendingAmount: 3500,
-    messageText:
-      'Dear Aarav Sharma (STU-2026-0001), your fee of ₹3,500 was due on 2026-02-09 (Day 31 overdue). Kindly complete payment today.',
-    status: 'pending',
-    scheduledFor: '2026-02-14T09:00:00Z',
-    attemptCount: 0,
-    isMock: true,
-    createdAt: '2026-02-13T10:00:00Z',
-  },
-  {
-    id: 'rem-2',
-    studentId: 'stu-2',
-    studentName: 'Diya Patel',
-    studentCode: 'STU-2026-0002',
-    studentPhone: '+919876500001',
-    billingCycleId: 'bc-2',
-    dueDate: '2026-02-11',
-    overdueDayCount: 31,
-    pendingAmount: 4000,
-    messageText:
-      'Dear Diya Patel (STU-2026-0002), your monthly fee of ₹4,000 is pending since 2026-02-11. Please clear the outstanding balance.',
-    status: 'sent',
-    scheduledFor: '2026-02-12T09:00:00Z',
-    sentAt: '2026-02-12T09:02:14Z',
-    providerMessageId: 'wamid.HBgLMjUxOTg3NjUwMDAxFQIAERgSMTQ1',
-    attemptCount: 1,
-    isMock: true,
-    createdAt: '2026-02-11T12:00:00Z',
-  },
-  {
-    id: 'rem-3',
-    studentId: 'stu-5',
-    studentName: 'Rohit Deshmukh',
-    studentCode: 'STU-2026-0005',
-    studentPhone: '+919876500099',
-    billingCycleId: 'bc-5',
-    dueDate: '2026-02-01',
-    overdueDayCount: 31,
-    pendingAmount: 5000,
-    messageText:
-      'Dear Rohit Deshmukh, reminder for pending fee ₹5,000.',
-    status: 'failed',
-    scheduledFor: '2026-02-02T09:00:00Z',
-    errorMessage: 'Recipient phone number not registered on WhatsApp',
-    attemptCount: 3,
-    isMock: true,
-    createdAt: '2026-02-01T10:00:00Z',
-  },
-];
+import { LoadingState } from '../../components/common/LoadingState';
+import { ReminderTimelineCard } from '../../components/reminders/ReminderTimelineCard';
+import { COLORS, RADIUS, SPACING } from '../../constants/theme';
+import { useReminders } from '../../context/ReminderContext';
+import { useStudents } from '../../context/StudentContext';
+import { ReminderStatus } from '../../types/reminder';
 
 type FilterTab = 'all' | ReminderStatus;
 
 export default function RemindersScreen() {
-  const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const { students } = useStudents();
+  const {
+    reminders,
+    loading,
+    scanAndGenerateDay31Reminders,
+    sendReminder,
+    retryReminder,
+    cancelReminder,
+    refreshReminders,
+  } = useReminders();
 
-  const filteredList = SAMPLE_REMINDERS.filter((rem) => {
+  const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [refreshing, setRefreshing] = useState(false);
+  const [scanning, setScanning] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshReminders();
+    setRefreshing(false);
+  };
+
+  const handleScanDay31 = async () => {
+    setScanning(true);
+    try {
+      const generated = await scanAndGenerateDay31Reminders(students);
+      setScanning(false);
+      if (generated > 0) {
+        Alert.alert(
+          'Scheduler Finished 🚀',
+          `Generated ${generated} new overdue reminder(s) for Day 31 accounts with outstanding balances.`
+        );
+      } else {
+        Alert.alert(
+          'Up to Date ✅',
+          'No new Day 31 overdue reminders needed. All eligible accounts already have scheduled or sent notices.'
+        );
+      }
+    } catch {
+      setScanning(false);
+      Alert.alert('Error', 'Failed to scan overdue accounts.');
+    }
+  };
+
+  const handleSendNow = async (id: string, studentName: string) => {
+    const success = await sendReminder(id);
+    if (success) {
+      Alert.alert('Dispatched 📲', `WhatsApp reminder successfully sent to ${studentName}!`);
+    } else {
+      Alert.alert('Delivery Failed', 'Unable to dispatch WhatsApp reminder. Check phone number format.');
+    }
+  };
+
+  const handleRetry = async (id: string) => {
+    const success = await retryReminder(id);
+    if (success) {
+      Alert.alert('Retried 📲', 'WhatsApp reminder re-sent successfully!');
+    } else {
+      Alert.alert('Retry Failed', 'Retry limit reached or phone number invalid.');
+    }
+  };
+
+  const handleCancel = async (id: string) => {
+    await cancelReminder(id);
+  };
+
+  const filteredList = reminders.filter((rem) => {
     if (activeTab === 'all') return true;
     return rem.status === activeTab;
   });
@@ -87,18 +95,32 @@ export default function RemindersScreen() {
     { label: 'Upcoming', value: 'pending' },
     { label: 'Sent', value: 'sent' },
     { label: 'Failed', value: 'failed' },
+    { label: 'Cancelled', value: 'cancelled' },
   ];
+
+  if (loading && !refreshing) {
+    return <LoadingState message="Loading reminder timeline..." />;
+  }
 
   return (
     <View style={styles.container}>
-      {/* Notice Banner */}
+      {/* Notice Banner with Scan Action */}
       <View style={styles.noticeCard}>
-        <View style={styles.noticeIcon}>
+        <View style={styles.noticeLeft}>
           <Ionicons name="information-circle" size={20} color={COLORS.primary} />
+          <Text style={styles.noticeText}>
+            Automated WhatsApp notices trigger on Day 31 for accounts with an outstanding balance.
+          </Text>
         </View>
-        <Text style={styles.noticeText}>
-          Automated WhatsApp reminders are sent on Day 31 for overdue accounts with an outstanding balance.
-        </Text>
+        <TouchableOpacity
+          style={styles.scanBtn}
+          onPress={handleScanDay31}
+          disabled={scanning}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="scan-outline" size={14} color={COLORS.white} />
+          <Text style={styles.scanBtnText}>{scanning ? 'Scanning...' : 'Scan Day 31'}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Filter Tabs */}
@@ -124,52 +146,21 @@ export default function RemindersScreen() {
         data={filteredList}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
+          />
+        }
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.headerLeft}>
-                <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
-                <Text style={styles.studentName}>{item.studentName}</Text>
-              </View>
-              <ReminderStatusBadge status={item.status} isMock={item.isMock} />
-            </View>
-
-            <View style={styles.metaRow}>
-              <Text style={styles.metaText}>{item.studentCode}</Text>
-              <Text style={styles.metaBullet}>•</Text>
-              <Text style={styles.metaText}>{item.studentPhone}</Text>
-              <Text style={styles.metaBullet}>•</Text>
-              <Text style={styles.overdueHighlight}>Day {item.overdueDayCount} Overdue</Text>
-            </View>
-
-            <View style={styles.messagePreviewBox}>
-              <Text style={styles.messageText} numberOfLines={3}>
-                &ldquo;{item.messageText}&rdquo;
-              </Text>
-            </View>
-
-            <View style={styles.footerRow}>
-              <View>
-                <Text style={styles.footerLabel}>Pending Amount</Text>
-                <Text style={styles.footerAmount}>₹{item.pendingAmount.toLocaleString()}</Text>
-              </View>
-              <View style={styles.rightFooter}>
-                <Text style={styles.footerLabel}>
-                  {item.status === 'sent' ? 'Sent On' : 'Scheduled For'}
-                </Text>
-                <Text style={styles.footerDate}>
-                  {item.status === 'sent' ? item.sentAt?.slice(0, 10) : item.scheduledFor.slice(0, 10)}
-                </Text>
-              </View>
-            </View>
-
-            {item.errorMessage ? (
-              <View style={styles.errorBox}>
-                <Ionicons name="warning-outline" size={14} color={COLORS.error} />
-                <Text style={styles.errorText}>Error: {item.errorMessage}</Text>
-              </View>
-            ) : null}
-          </View>
+          <ReminderTimelineCard
+            reminder={item}
+            onSendNow={() => handleSendNow(item.id, item.studentName)}
+            onRetry={() => handleRetry(item.id)}
+            onCancel={() => handleCancel(item.id)}
+          />
         )}
         ListEmptyComponent={
           <EmptyState
@@ -189,8 +180,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   noticeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: COLORS.primaryLight,
     padding: SPACING.md,
     marginHorizontal: SPACING.lg,
@@ -200,8 +189,10 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primaryBorder,
     gap: SPACING.sm,
   },
-  noticeIcon: {
-    justifyContent: 'center',
+  noticeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
   },
   noticeText: {
     flex: 1,
@@ -209,6 +200,23 @@ const styles = StyleSheet.create({
     color: COLORS.primaryDark,
     lineHeight: 17,
     fontWeight: '500',
+  },
+  scanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 7,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.sm,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  scanBtnText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '700',
   },
   tabBar: {
     flexDirection: 'row',
@@ -239,108 +247,5 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.xxxl,
-  },
-  card: {
-    backgroundColor: COLORS.card,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    ...SHADOWS.card,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-  },
-  studentName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    gap: 6,
-  },
-  metaText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  metaBullet: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-  },
-  overdueHighlight: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.status.overdue,
-  },
-  messagePreviewBox: {
-    backgroundColor: COLORS.background,
-    padding: SPACING.sm + 2,
-    borderRadius: RADIUS.md,
-    marginTop: SPACING.sm,
-    borderLeftWidth: 3,
-    borderLeftColor: '#25D366',
-  },
-  messageText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontStyle: 'italic',
-    lineHeight: 18,
-  },
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: SPACING.md,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.cardBorder,
-  },
-  footerLabel: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    fontWeight: '500',
-  },
-  footerAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginTop: 1,
-  },
-  rightFooter: {
-    alignItems: 'flex-end',
-  },
-  footerDate: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginTop: 1,
-  },
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: SPACING.sm,
-    backgroundColor: COLORS.errorLight,
-    padding: SPACING.xs + 2,
-    borderRadius: RADIUS.sm,
-  },
-  errorText: {
-    fontSize: 11,
-    color: COLORS.error,
-    fontWeight: '600',
-    flex: 1,
   },
 });

@@ -14,41 +14,21 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { FeeSummaryCard } from '../../components/dashboard/FeeSummaryCard';
 import { StudentCard } from '../../components/students/StudentCard';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../constants/theme';
+import { usePayments } from '../../context/PaymentContext';
+import { useReminders } from '../../context/ReminderContext';
 import { useStudents } from '../../context/StudentContext';
-import { FeeSummary, Payment } from '../../types/payment';
-
-const RECENT_PAYMENTS: Payment[] = [
-  {
-    id: 'pay-1',
-    studentId: 'stu-3',
-    studentName: 'Vihaan Verma',
-    studentCode: 'STU-2026-0003',
-    amount: 3500,
-    paymentDate: '2026-02-13',
-    paymentMethod: 'upi',
-    transactionRef: 'UPI/6044192834',
-    createdAt: '2026-02-13T14:30:00Z',
-  },
-  {
-    id: 'pay-2',
-    studentId: 'stu-4',
-    studentName: 'Ananya Iyer',
-    studentCode: 'STU-2026-0004',
-    amount: 4500,
-    paymentDate: '2026-02-12',
-    paymentMethod: 'cash',
-    createdAt: '2026-02-12T11:15:00Z',
-  },
-];
+import { FeeSummary } from '../../types/payment';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const { students, refreshStudents } = useStudents();
+  const { payments, refreshPayments } = usePayments();
+  const { reminders, refreshReminders } = useReminders();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await refreshStudents();
+    await Promise.all([refreshStudents(), refreshPayments(), refreshReminders()]);
     setRefreshing(false);
   };
 
@@ -56,15 +36,19 @@ export default function DashboardScreen() {
   const overdueStudents = activeStudents.filter((s) => s.feeStatus === 'overdue');
   const dueSoonStudents = activeStudents.filter((s) => s.feeStatus === 'due');
   const totalOutstanding = activeStudents.reduce((sum, s) => sum + s.outstandingAmount, 0);
+  const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
+  const pendingRemindersCount = reminders.filter((r) => r.status === 'pending').length;
 
   const dynamicSummary: FeeSummary = {
     totalActiveStudents: activeStudents.length,
-    totalCollected: 128500,
+    totalCollected,
     totalOutstanding,
     dueSoonCount: dueSoonStudents.length,
     overdueCount: overdueStudents.length,
-    upcomingRemindersCount: overdueStudents.length,
+    upcomingRemindersCount: pendingRemindersCount,
   };
+
+  const recentPayments = payments.slice(0, 3);
 
   return (
     <ScrollView
@@ -153,27 +137,31 @@ export default function DashboardScreen() {
       </View>
 
       <View style={styles.paymentsListCard}>
-        {RECENT_PAYMENTS.map((payment, index) => (
-          <View key={payment.id}>
-            <View style={styles.paymentRow}>
-              <View style={styles.paymentIconBadge}>
-                <Ionicons
-                  name={payment.paymentMethod === 'upi' ? 'qr-code-outline' : 'cash-outline'}
-                  size={18}
-                  color={COLORS.primary}
-                />
+        {recentPayments.length > 0 ? (
+          recentPayments.map((payment, index) => (
+            <View key={payment.id}>
+              <View style={styles.paymentRow}>
+                <View style={styles.paymentIconBadge}>
+                  <Ionicons
+                    name={payment.paymentMethod === 'upi' ? 'qr-code-outline' : 'cash-outline'}
+                    size={18}
+                    color={COLORS.primary}
+                  />
+                </View>
+                <View style={styles.paymentDetails}>
+                  <Text style={styles.paymentStudentName}>{payment.studentName || 'Student Payment'}</Text>
+                  <Text style={styles.paymentMeta}>
+                    {payment.studentCode} • {payment.paymentMethod.toUpperCase()} • {payment.paymentDate}
+                  </Text>
+                </View>
+                <Text style={styles.paymentAmount}>+₹{payment.amount.toLocaleString()}</Text>
               </View>
-              <View style={styles.paymentDetails}>
-                <Text style={styles.paymentStudentName}>{payment.studentName}</Text>
-                <Text style={styles.paymentMeta}>
-                  {payment.studentCode} • {payment.paymentMethod.toUpperCase()} • {payment.paymentDate}
-                </Text>
-              </View>
-              <Text style={styles.paymentAmount}>+₹{payment.amount.toLocaleString()}</Text>
+              {index < recentPayments.length - 1 ? <View style={styles.paymentDivider} /> : null}
             </View>
-            {index < RECENT_PAYMENTS.length - 1 ? <View style={styles.paymentDivider} /> : null}
-          </View>
-        ))}
+          ))
+        ) : (
+          <Text style={styles.emptyPaymentsText}>No payments recorded yet.</Text>
+        )}
       </View>
     </ScrollView>
   );
@@ -266,12 +254,19 @@ const styles = StyleSheet.create({
   },
   paymentAmount: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
     color: COLORS.status.paid,
   },
   paymentDivider: {
     height: 1,
     backgroundColor: COLORS.cardBorder,
     marginVertical: 4,
+  },
+  emptyPaymentsText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: SPACING.md,
   },
 });
