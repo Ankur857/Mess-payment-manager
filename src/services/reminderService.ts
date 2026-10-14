@@ -11,17 +11,17 @@ const STORAGE_KEYS = {
 // Initial seed reminder logs
 const INITIAL_SEED_REMINDERS: ReminderLog[] = [
   {
-    id: 'rem-seed-1',
-    studentId: 'stu-1',
-    studentName: 'Aarav Sharma',
+    id: 'rem-seed-ankur-test',
+    studentId: 'stu-ankur-test',
+    studentName: 'Ankur (Admin Test)',
     studentCode: 'STU-2026-0001',
-    studentPhone: '+919876543210',
-    billingCycleId: 'bc-1',
+    studentPhone: '+918574117424',
+    billingCycleId: 'bc-ankur-1',
     dueDate: '2026-02-09',
     overdueDayCount: 31,
     pendingAmount: 3500,
     messageText:
-      'Dear Aarav Sharma (STU-2026-0001), your fee of ₹3,500 was due on 2026-02-09 (Day 31 overdue). Kindly complete payment today.',
+      'Dear Ankur (STU-2026-0001), your fee of ₹3,500 was due on 2026-02-09 (Day 31 overdue). Kindly complete payment today.',
     status: 'pending',
     scheduledFor: new Date().toISOString(),
     attemptCount: 0,
@@ -187,7 +187,14 @@ export const ReminderService = {
         await AsyncStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(INITIAL_SEED_REMINDERS));
         return INITIAL_SEED_REMINDERS;
       }
-      return JSON.parse(data);
+      const parsed: ReminderLog[] = JSON.parse(data);
+      // Ensure Ankur's test phone reminder 8574117424 is available for testing
+      if (!parsed.some((r) => r.studentPhone.includes('8574117424'))) {
+        const merged = [INITIAL_SEED_REMINDERS[0], ...parsed];
+        await AsyncStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(merged));
+        return merged;
+      }
+      return parsed;
     } catch {
       return INITIAL_SEED_REMINDERS;
     }

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
+  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -24,6 +25,24 @@ export const ReminderTimelineCard: React.FC<ReminderTimelineCardProps> = ({
   onRetry,
   onCancel,
 }) => {
+  const handleOpenWhatsAppDirect = () => {
+    const rawDigits = reminder.studentPhone.replace(/[^0-9]/g, '');
+    const phoneWithCountry = rawDigits.length === 10 ? `91${rawDigits}` : rawDigits;
+    const url = `whatsapp://send?phone=${phoneWithCountry}&text=${encodeURIComponent(reminder.messageText)}`;
+    const webFallback = `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(reminder.messageText)}`;
+
+    Linking.canOpenURL(url)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(url);
+        } else {
+          Linking.openURL(webFallback);
+        }
+      })
+      .catch(() => {
+        Linking.openURL(webFallback);
+      });
+  };
   return (
     <View style={styles.card}>
       {/* Top Header */}
@@ -100,14 +119,24 @@ export const ReminderTimelineCard: React.FC<ReminderTimelineCardProps> = ({
         {reminder.status === 'pending' && onSendNow ? (
           <TouchableOpacity style={styles.actionBtnPrimary} onPress={onSendNow} activeOpacity={0.8}>
             <Ionicons name="paper-plane-outline" size={14} color={COLORS.white} />
-            <Text style={styles.actionBtnPrimaryText}>Send WhatsApp Now</Text>
+            <Text style={styles.actionBtnPrimaryText}>Send Now</Text>
           </TouchableOpacity>
         ) : null}
+
+        {/* Real WhatsApp Direct Testing Action */}
+        <TouchableOpacity
+          style={styles.actionBtnWhatsApp}
+          onPress={handleOpenWhatsAppDirect}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="logo-whatsapp" size={15} color="#25D366" />
+          <Text style={styles.actionBtnWhatsAppText}>Open WhatsApp</Text>
+        </TouchableOpacity>
 
         {reminder.status === 'failed' && onRetry ? (
           <TouchableOpacity style={styles.actionBtnRetry} onPress={onRetry} activeOpacity={0.8}>
             <Ionicons name="refresh-outline" size={14} color={COLORS.primaryDark} />
-            <Text style={styles.actionBtnRetryText}>Retry Delivery</Text>
+            <Text style={styles.actionBtnRetryText}>Retry</Text>
           </TouchableOpacity>
         ) : null}
 
@@ -268,6 +297,24 @@ const styles = StyleSheet.create({
   },
   actionBtnPrimaryText: {
     color: COLORS.white,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  actionBtnWhatsApp: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#E8F8EE',
+    borderWidth: 1,
+    borderColor: '#A3E6B8',
+    paddingVertical: SPACING.xs + 4,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  actionBtnWhatsAppText: {
+    color: '#0D6832',
     fontSize: 13,
     fontWeight: '700',
   },
