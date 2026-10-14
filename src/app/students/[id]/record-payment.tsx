@@ -13,22 +13,26 @@ import {
 } from 'react-native';
 import { Button } from '../../../components/common/Button';
 import { Input } from '../../../components/common/Input';
+import { LoadingState } from '../../../components/common/LoadingState';
+import { ReceiptModal } from '../../../components/payments/ReceiptModal';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../../constants/theme';
-import { PaymentMethod } from '../../../types/payment';
+import { usePayments } from '../../../context/PaymentContext';
+import { useStudents } from '../../../context/StudentContext';
+import { Payment, PaymentMethod } from '../../../types/payment';
+import { calculateNextDeadline, evaluatePaymentPolicy } from '../../../utils/billingCycle';
+import { formatDisplayDate, getTodayDateString } from '../../../utils/date';
 
 export default function RecordPaymentScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { getStudentById, loading: studentLoading, updateStudent } = useStudents();
+  const { recordPayment } = usePayments();
 
-  // Student details
-  const studentName = 'Aarav Sharma';
-  const studentCode = 'STU-2026-0001';
-  const standardFee = 3500;
-  const currentOutstanding = 3500;
+  const student = getStudentById(String(id));
 
   // Form State
-  const todayStr = new Date().toISOString().split('T')[0];
-  const [amount, setAmount] = useState(String(standardFee));
+  const todayStr = getTodayDateString();
+  const [amount, setAmount] = useState(student ? String(student.outstandingAmount || student.monthlyFee) : '3500');
   const [paymentDate, setPaymentDate] = useState(todayStr);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('upi');
   const [transactionRef, setTransactionRef] = useState('');
@@ -36,18 +40,34 @@ export default function RecordPaymentScreen() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Calculate 30-day deadline preview
-  const calculateDeadline = (baseDateStr: string) => {
-    try {
-      const d = new Date(baseDateStr + 'T12:00:00Z');
-      d.setDate(d.getDate() + 30);
-      return d.toISOString().split('T')[0];
-    } catch {
-      return 'Invalid date';
-    }
-  };
+  // Receipt Modal State
+  const [receiptVisible, setReceiptVisible] = useState(false);
+  const [completedPayment, setCompletedPayment] = useState<Payment | null>(null);
+  const [receiptDeadline, setReceiptDeadline] = useState('');
+  const [receiptBalance, setReceiptBalance] = useState(0);
 
-  const nextDeadlinePreview = calculateDeadline(paymentDate);
+  if (studentLoading) {
+    return <LoadingState message="Loading student details..." />;
+  }
+
+  if (!student) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={48} color={COLORS.error} />
+        <Text style={styles.errorTitle}>Student Not Found</Text>
+        <Button title="Go Back" onPress={() => router.back()} style={{ marginTop: SPACING.md }} />
+      </View>
+    );
+  }
+
+  const amtNumber = Number(amount) || 0;
+  const policyPreview = evaluatePaymentPolicy(
+    student.monthlyFee,
+    student.outstandingAmount,
+    amtNumber,
+    paymentDate,
+    student.nextDeadline
+  );
 
   const paymentMethods: { label: string; value: PaymentMethod; icon: keyof typeof Ionicons.glyphMap }[] = [
     { label: 'UPI / QR', value: 'upi', icon: 'qr-code-outline' },
@@ -58,11 +78,9 @@ export default function RecordPaymentScreen() {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    const amtNum = Number(amount);
-
     if (!amount.trim()) {
       errs.amount = 'Amount is required';
-    } else if (isNaN(amtNum) || amtNum <= 0) {
+    } else if (isNaN(amtNumber) || amtNumber <= 0) {
       errs.amount = 'Enter a valid positive payment amount';
     }
 
@@ -74,18 +92,43 @@ export default function RecordPaymentScreen() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSavePayment = () => {
+  const handleSavePayment = async () => {
     if (!validate()) return;
     setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
-      Alert.alert(
-        'Payment Recorded! 🎉',
-        `₹${Number(amount).toLocaleString()} collected on ${paymentDate}.\nNext billing deadline: ${nextDeadlinePreview}.`,
-        [{ text: 'OK', onPress: () => router.back() }]
+    try {
+      const result = await recordPayment(
+        {
+          studentId: student.id,
+          amount: amtNumber,
+          paymentDate: paymentDate.trim(),
+          paymentMethod,
+          transactionRef: transactionRef.trim() || undefined,
+          notes: notes.trim() || undefined,
+        },
+        student
       );
-    }, 600);
+
+      // Update student record in StudentContext
+      await updateStudent(student.id, {
+        status: student.status,
+      });
+
+      // Show official receipt modal
+      setCompletedPayment(result.payment);
+      setReceiptDeadline(result.newDeadline);
+      setReceiptBalance(result.remainingBalance);
+      setLoading(false);
+      setReceiptVisible(true);
+    } catch {
+      setLoading(false);
+      Alert.alert('Error', 'Failed to record payment. Please try again.');
+    }
+  };
+
+  const handleReceiptClose = () => {
+    setReceiptVisible(false);
+    router.back();
   };
 
   return (
@@ -97,22 +140,32 @@ export default function RecordPaymentScreen() {
         {/* Student Summary Banner */}
         <View style={styles.studentBanner}>
           <View style={styles.bannerLeft}>
-            <Text style={styles.studentName}>{studentName}</Text>
-            <Text style={styles.studentCode}>{studentCode}</Text>
+            <Text style={styles.studentName}>{student.name}</Text>
+            <Text style={styles.studentCode}>{student.studentCode}</Text>
           </View>
           <View style={styles.bannerRight}>
-            <Text style={styles.outstandingLabel}>Outstanding</Text>
-            <Text style={styles.outstandingAmount}>₹{currentOutstanding.toLocaleString()}</Text>
+            <Text style={styles.outstandingLabel}>Outstanding Fee</Text>
+            <Text style={styles.outstandingAmount}>₹{student.outstandingAmount.toLocaleString()}</Text>
           </View>
         </View>
 
         {/* 30-Day Billing Cycle Indicator */}
         <View style={styles.ruleBanner}>
-          <Ionicons name="sparkles" size={18} color={COLORS.primary} />
+          <Ionicons
+            name={policyPreview.isFullPayment ? 'sparkles' : 'hourglass-outline'}
+            size={18}
+            color={COLORS.primary}
+          />
           <View style={styles.ruleTextContainer}>
-            <Text style={styles.ruleTitle}>30-Day Billing Rule</Text>
+            <Text style={styles.ruleTitle}>
+              {policyPreview.isFullPayment
+                ? 'Qualifying Full Payment (Cycle Cleared)'
+                : 'Partial Payment Policy'}
+            </Text>
             <Text style={styles.ruleSubtext}>
-              Recording payment today sets the next deadline to {nextDeadlinePreview} (+30 days). Overdue notice sends Day 31.
+              {policyPreview.isFullPayment
+                ? `Next billing deadline advances +30 days to ${formatDisplayDate(policyPreview.newNextDeadline)}.`
+                : `Remaining balance ₹${policyPreview.remainingCycleBalance.toLocaleString()}. Original due date (${formatDisplayDate(student.nextDeadline)}) retained.`}
             </Text>
           </View>
         </View>
@@ -132,15 +185,19 @@ export default function RecordPaymentScreen() {
           <View style={styles.quickPillRow}>
             <TouchableOpacity
               style={styles.quickPill}
-              onPress={() => setAmount(String(standardFee))}
+              onPress={() => setAmount(String(student.outstandingAmount || student.monthlyFee))}
             >
-              <Text style={styles.quickPillText}>Full Fee (₹{standardFee})</Text>
+              <Text style={styles.quickPillText}>
+                Full Due (₹{student.outstandingAmount || student.monthlyFee})
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.quickPill}
-              onPress={() => setAmount(String(Math.round(standardFee / 2)))}
+              onPress={() => setAmount(String(Math.round((student.outstandingAmount || student.monthlyFee) / 2)))}
             >
-              <Text style={styles.quickPillText}>Half Fee (₹{Math.round(standardFee / 2)})</Text>
+              <Text style={styles.quickPillText}>
+                Half (₹{Math.round((student.outstandingAmount || student.monthlyFee) / 2)})
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -150,7 +207,7 @@ export default function RecordPaymentScreen() {
             value={paymentDate}
             onChangeText={setPaymentDate}
             error={errors.paymentDate}
-            helperText="Cycle starts from this date"
+            helperText="Cycle starts from this date upon qualifying payment"
             leftIcon={<Ionicons name="calendar-outline" size={18} color={COLORS.textSecondary} />}
           />
 
@@ -190,20 +247,31 @@ export default function RecordPaymentScreen() {
 
           <Input
             label="Notes / Remarks (Optional)"
-            placeholder="e.g. Paid in cash at tuition reception"
+            placeholder="e.g. Paid in cash at reception"
             value={notes}
             onChangeText={setNotes}
             leftIcon={<Ionicons name="document-text-outline" size={18} color={COLORS.textSecondary} />}
           />
 
           <Button
-            title="Confirm & Save Payment"
+            title="Payment Done"
             onPress={handleSavePayment}
             loading={loading}
             style={styles.saveBtn}
           />
         </View>
       </ScrollView>
+
+      {/* Official Receipt Modal */}
+      <ReceiptModal
+        visible={receiptVisible}
+        payment={completedPayment}
+        studentName={student.name}
+        studentCode={student.studentCode}
+        nextDeadline={receiptDeadline}
+        remainingBalance={receiptBalance}
+        onClose={handleReceiptClose}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -216,6 +284,19 @@ const styles = StyleSheet.create({
   content: {
     padding: SPACING.lg,
     paddingBottom: SPACING.xxxl,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+    backgroundColor: COLORS.background,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginTop: SPACING.md,
   },
   studentBanner: {
     backgroundColor: COLORS.card,

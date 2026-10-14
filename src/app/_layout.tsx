@@ -4,6 +4,7 @@ import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
 import { AuthProvider } from '../context/AuthContext';
+import { PaymentProvider } from '../context/PaymentContext';
 import { StudentProvider } from '../context/StudentContext';
 
 export default function RootLayout() {
@@ -11,8 +12,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <StudentProvider>
-          <StatusBar style="light" />
-          <Stack
+          <PaymentProvider>
+            <StatusBar style="light" />
+            <Stack
         screenOptions={{
           headerStyle: {
             backgroundColor: COLORS.header,
@@ -79,6 +81,7 @@ export default function RootLayout() {
           }}
         />
       </Stack>
+            </PaymentProvider>
         </StudentProvider>
       </AuthProvider>
     </SafeAreaProvider>
