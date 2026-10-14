@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { ReminderLog, ReminderStatus } from '../types/reminder';
 import { generateMockProviderMessageId } from '../utils/reminderEngine';
+import { WhatsAppApiService } from './whatsappApiService';
 
 const STORAGE_KEYS = {
   REMINDERS: '@fee_manager_reminders_v1',
@@ -164,30 +165,18 @@ export const ReminderService = {
   },
 
   /**
-   * Simulates sending via the official WhatsApp Business Cloud API.
-   * Clearly distinguishes mock delivery and assigns a provider message ID.
+   * Dispatches WhatsApp reminder via backend Supabase Edge Function or mock simulation.
    */
   async sendMockWhatsApp(reminder: ReminderLog): Promise<{
     success: boolean;
     providerMessageId?: string;
     errorMessage?: string;
   }> {
-    // Simulate real network dispatch
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    // Simple failure test scenario (e.g. invalid phone number format)
-    const cleanPhone = reminder.studentPhone.replace(/[^0-9]/g, '');
-    if (cleanPhone.length < 10) {
-      return {
-        success: false,
-        errorMessage: 'Invalid phone number format for WhatsApp Cloud API',
-      };
-    }
-
-    const providerId = generateMockProviderMessageId();
+    const result = await WhatsAppApiService.dispatchReminder(reminder);
     return {
-      success: true,
-      providerMessageId: providerId,
+      success: result.success,
+      providerMessageId: result.providerMessageId,
+      errorMessage: result.errorMessage,
     };
   },
 
