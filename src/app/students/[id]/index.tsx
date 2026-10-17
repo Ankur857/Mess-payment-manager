@@ -4,8 +4,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
+  Dimensions,
   Image,
   Linking,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,6 +30,7 @@ export default function StudentProfileScreen() {
   const { getStudentPayments } = usePayments();
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [photoModalVisible, setPhotoModalVisible] = useState(false);
 
   const student = getStudentById(String(id));
   const studentPayments = student ? getStudentPayments(student.id) : [];
@@ -125,7 +128,7 @@ export default function StudentProfileScreen() {
       [
         { text: 'Take Photo (Camera)', onPress: handleCapturePhoto },
         { text: 'Choose from Gallery', onPress: handlePickImage },
-        ...(student.photoUrl
+        ...(student?.photoUrl
           ? [
               {
                 text: 'Remove Photo',
@@ -144,6 +147,14 @@ export default function StudentProfileScreen() {
         { text: 'Cancel', style: 'cancel' },
       ]
     );
+  };
+
+  const handleAvatarPress = () => {
+    if (student?.photoUrl && !imageError) {
+      setPhotoModalVisible(true);
+    } else {
+      handlePhotoOptions();
+    }
   };
 
   const handleCall = (phoneNumber: string) => {
@@ -193,7 +204,7 @@ export default function StudentProfileScreen() {
         <View style={styles.avatarRow}>
           <TouchableOpacity
             style={styles.avatarTouchWrapper}
-            onPress={handlePhotoOptions}
+            onPress={handleAvatarPress}
             activeOpacity={0.8}
           >
             <View style={styles.avatarContainer}>
@@ -212,9 +223,16 @@ export default function StudentProfileScreen() {
                 </View>
               )}
             </View>
-            <View style={styles.cameraBadge}>
+            <TouchableOpacity
+              style={styles.cameraBadge}
+              onPress={(e) => {
+                e.stopPropagation();
+                handlePhotoOptions();
+              }}
+              activeOpacity={0.7}
+            >
               <Ionicons name="camera" size={13} color={COLORS.white} />
-            </View>
+            </TouchableOpacity>
           </TouchableOpacity>
 
           <View style={styles.profileMeta}>
@@ -471,6 +489,89 @@ export default function StudentProfileScreen() {
         onConfirm={handleDeleteStudent}
         onCancel={() => setDeleteVisible(false)}
       />
+
+      {/* Full Profile Photo View Modal with Close/Cross Button */}
+      <Modal
+        visible={photoModalVisible}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setPhotoModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          {/* Backdrop click to dismiss */}
+          <TouchableOpacity
+            style={styles.modalDismissArea}
+            activeOpacity={1}
+            onPress={() => setPhotoModalVisible(false)}
+          />
+
+          <View style={styles.modalCard}>
+            {/* Modal Header with Title & Cross Button */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleCol}>
+                <Text style={styles.modalStudentName} numberOfLines={1}>
+                  {student.name}
+                </Text>
+                <Text style={styles.modalStudentCode}>
+                  {student.studentCode} • Profile Photo
+                </Text>
+              </View>
+
+              {/* Cross (Close) Button */}
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setPhotoModalVisible(false)}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* High-Resolution Photo Container */}
+            <View style={styles.modalImageContainer}>
+              {student.photoUrl && !imageError ? (
+                <Image
+                  source={{ uri: student.photoUrl }}
+                  style={styles.modalFullImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={styles.modalPlaceholder}>
+                  <Text style={styles.modalPlaceholderInitial}>
+                    {student.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Modal Footer Controls */}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalChangeBtn}
+                onPress={() => {
+                  setPhotoModalVisible(false);
+                  setTimeout(() => handlePhotoOptions(), 300);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="camera-outline" size={17} color="#FFFFFF" />
+                <Text style={styles.modalChangeBtnText}>Change Photo</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalDoneBtn}
+                onPress={() => setPhotoModalVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close-circle-outline" size={17} color="#FFFFFF" />
+                <Text style={styles.modalDoneBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -858,5 +959,128 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: COLORS.error,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.88)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
+  },
+  modalDismissArea: {
+    ...StyleSheet.absoluteFill,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#111827',
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: '#374151',
+    ...SHADOWS.cardElevated,
+    zIndex: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+    paddingBottom: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1F2937',
+  },
+  modalTitleCol: {
+    flex: 1,
+    paddingRight: SPACING.sm,
+  },
+  modalStudentName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  modalStudentCode: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  modalImageContainer: {
+    width: '100%',
+    height: 340,
+    backgroundColor: '#030712',
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#1F2937',
+  },
+  modalFullImage: {
+    width: '100%',
+    height: '100%',
+  },
+  modalPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalPlaceholderInitial: {
+    fontSize: 48,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+    marginTop: SPACING.lg,
+  },
+  modalChangeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
+    backgroundColor: '#1F2937',
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  modalChangeBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#F3F4F6',
+  },
+  modalDoneBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
+  },
+  modalDoneBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
