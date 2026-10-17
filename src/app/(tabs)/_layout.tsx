@@ -57,6 +57,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Dashboard',
+          headerTitle: 'Raghuvanshi Restorent & Cafe',
           tabBarLabel: 'Dashboard',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'grid' : 'grid-outline'} size={size || 22} color={color} />

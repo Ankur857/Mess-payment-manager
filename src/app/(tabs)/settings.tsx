@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Switch,
@@ -44,13 +45,18 @@ export default function SettingsScreen() {
       {/* Admin Profile Card */}
       <View style={styles.profileCard}>
         <View style={styles.profileAvatar}>
-          <Ionicons name="shield-checkmark" size={32} color={COLORS.primary} />
+          <Image
+            source={require('../../../assets/images/logo.png')}
+            style={styles.profileLogoImage}
+            resizeMode="contain"
+          />
         </View>
         <View style={styles.profileInfo}>
-          <Text style={styles.adminName}>Super Admin</Text>
+          <Text style={styles.adminName}>Raghuvanshi Restorent & Cafe</Text>
+          <Text style={styles.adminTagline}>Good Time, Great Test</Text>
           <Text style={styles.adminEmail}>admin@feemanager.com</Text>
           <View style={styles.adminRoleBadge}>
-            <Text style={styles.adminRoleText}>Full Access • Single Admin</Text>
+            <Text style={styles.adminRoleText}>Super Admin • Single Access</Text>
           </View>
         </View>
       </View>
@@ -153,8 +159,8 @@ export default function SettingsScreen() {
 
       {/* App Version Info */}
       <View style={styles.versionContainer}>
-        <Text style={styles.versionText}>Fee Manager App v1.0.0 (Expo SDK 57)</Text>
-        <Text style={styles.versionSubtext}>Single-Admin Production Ready</Text>
+        <Text style={styles.versionText}>Raghuvanshi Restorent & Cafe • v1.0.0</Text>
+        <Text style={styles.versionSubtext}>Single-Admin Production Portal</Text>
       </View>
 
       {/* Reset Confirmation Dialog */}
@@ -204,25 +210,38 @@ const styles = StyleSheet.create({
     ...SHADOWS.card,
   },
   profileAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: COLORS.primaryLight,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: COLORS.primaryBorder,
+    borderColor: '#D4AF37',
+    overflow: 'hidden',
+  },
+  profileLogoImage: {
+    width: 58,
+    height: 58,
   },
   profileInfo: {
     flex: 1,
   },
   adminName: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     color: COLORS.textPrimary,
   },
+  adminTagline: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
   adminEmail: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textSecondary,
     marginTop: 2,
   },
