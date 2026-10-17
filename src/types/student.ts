@@ -38,4 +38,9 @@ export interface CreateStudentInput {
 
 export interface UpdateStudentInput extends Partial<CreateStudentInput> {
   status?: StudentStatus;
+  lastPaymentDate?: string;
+  nextDeadline?: string;
+  outstandingAmount?: number;
+  feeStatus?: StudentFeeStatus;
+  daysRemaining?: number;
 }

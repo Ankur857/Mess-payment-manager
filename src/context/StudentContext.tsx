@@ -125,7 +125,11 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         parentPhone: payload.parentPhone !== undefined ? payload.parentPhone.trim() : s.parentPhone,
         monthlyFee: payload.monthlyFee !== undefined ? Number(payload.monthlyFee) : s.monthlyFee,
         photoUrl: payload.photoUrl !== undefined ? payload.photoUrl : s.photoUrl,
-        status: payload.status !== undefined ? payload.status : s.status,
+        lastPaymentDate: payload.lastPaymentDate !== undefined ? payload.lastPaymentDate : s.lastPaymentDate,
+        nextDeadline: payload.nextDeadline !== undefined ? payload.nextDeadline : s.nextDeadline,
+        outstandingAmount: payload.outstandingAmount !== undefined ? payload.outstandingAmount : s.outstandingAmount,
+        feeStatus: payload.feeStatus !== undefined ? payload.feeStatus : s.feeStatus,
+        daysRemaining: payload.nextDeadline !== undefined ? getDaysRemaining(payload.nextDeadline) : s.daysRemaining,
         updatedAt: new Date().toISOString(),
       };
       return updatedRecord;

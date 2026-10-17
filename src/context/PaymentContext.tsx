@@ -65,11 +65,12 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       student.nextDeadline
     );
 
-    // 3. Update the student in StudentContext
+    // 3. Update the student in StudentContext with updated billing deadline & status
     await updateStudent(student.id, {
-      ...student,
-      // If full payment, advance deadline to payment date + 30 days
-      // If partial payment, retain existing deadline
+      lastPaymentDate: input.paymentDate,
+      nextDeadline: policyResult.newNextDeadline,
+      outstandingAmount: policyResult.remainingCycleBalance,
+      feeStatus: policyResult.newFeeStatus,
     });
 
     // 4. Prepend new payment to local payments state
