@@ -6,60 +6,22 @@ const STORAGE_KEYS = {
   STUDENT_SEQUENCE: '@fee_manager_student_sequence_v1',
 };
 
-const DEFAULT_MOCK_STUDENTS: Student[] = [
-  {
-    id: 'stu-aarav-seed',
-    studentCode: 'STU-2026-0001',
-    name: 'Aarav Sharma',
-    phone: '9876543210',
-    parentName: 'Ramesh Sharma',
-    parentPhone: '9876543210',
-    monthlyFee: 3500,
-    outstandingAmount: 3500,
-    status: 'active',
-    admissionDate: '2026-01-09',
-    nextDeadline: '2026-02-09',
-    daysRemaining: -31,
-    feeStatus: 'overdue',
-    createdAt: '2026-01-09T10:00:00Z',
-    updatedAt: '2026-01-09T10:00:00Z',
-  },
-  {
-    id: 'stu-diya-seed',
-    studentCode: 'STU-2026-0002',
-    name: 'Diya Patel',
-    phone: '9876500001',
-    parentName: 'Suresh Patel',
-    parentPhone: '9876500001',
-    monthlyFee: 4000,
-    outstandingAmount: 2000,
-    status: 'active',
-    admissionDate: '2026-01-12',
-    nextDeadline: '2026-02-11',
-    daysRemaining: -31,
-    feeStatus: 'partial',
-    createdAt: '2026-01-12T10:00:00Z',
-    updatedAt: '2026-01-12T10:00:00Z',
-  },
-];
-
 export const StorageService = {
   async getStudents(): Promise<Student[]> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.STUDENTS);
-      if (!data) {
-        await AsyncStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(DEFAULT_MOCK_STUDENTS));
-        return DEFAULT_MOCK_STUDENTS;
-      }
+      if (!data) return [];
       const parsed: Student[] = JSON.parse(data);
-      // Clean out any previously saved test phone entries
-      const sanitized = parsed.filter((s) => !s.phone.includes('8574117424'));
+      // Clean out any legacy seed or dummy entries
+      const sanitized = parsed.filter(
+        (s) => !s.id.includes('seed') && !s.id.includes('test') && !s.phone.includes('8574117424')
+      );
       if (sanitized.length !== parsed.length) {
         await AsyncStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(sanitized));
       }
-      return sanitized.length > 0 ? sanitized : DEFAULT_MOCK_STUDENTS;
+      return sanitized;
     } catch {
-      return DEFAULT_MOCK_STUDENTS;
+      return [];
     }
   },
 

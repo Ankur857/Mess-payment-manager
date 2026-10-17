@@ -8,57 +8,6 @@ const STORAGE_KEYS = {
   PAYMENTS: '@fee_manager_payments_v1',
 };
 
-// Seed initial payments for first launch
-const INITIAL_SEED_PAYMENTS: Payment[] = [
-  {
-    id: 'pay-seed-1',
-    studentId: 'stu-3',
-    studentName: 'Vihaan Verma',
-    studentCode: 'STU-2026-0003',
-    amount: 3500,
-    paymentDate: '2026-02-13',
-    paymentMethod: 'upi',
-    transactionRef: 'UPI/6044192834',
-    notes: 'February regular fee paid in full',
-    createdAt: '2026-02-13T14:30:00Z',
-  },
-  {
-    id: 'pay-seed-2',
-    studentId: 'stu-4',
-    studentName: 'Ananya Iyer',
-    studentCode: 'STU-2026-0004',
-    amount: 4500,
-    paymentDate: '2026-02-12',
-    paymentMethod: 'cash',
-    notes: 'Received by Cash Desk',
-    createdAt: '2026-02-12T11:15:00Z',
-  },
-  {
-    id: 'pay-seed-3',
-    studentId: 'stu-1',
-    studentName: 'Aarav Sharma',
-    studentCode: 'STU-2026-0001',
-    amount: 3500,
-    paymentDate: '2026-01-10',
-    paymentMethod: 'bank_transfer',
-    transactionRef: 'IMPS/99812401',
-    notes: 'January installment',
-    createdAt: '2026-01-10T10:00:00Z',
-  },
-  {
-    id: 'pay-seed-4',
-    studentId: 'stu-2',
-    studentName: 'Diya Patel',
-    studentCode: 'STU-2026-0002',
-    amount: 2000,
-    paymentDate: '2026-01-12',
-    paymentMethod: 'upi',
-    transactionRef: 'UPI/7712498213',
-    notes: 'Partial payment of 4000 fee',
-    createdAt: '2026-01-12T10:00:00Z',
-  },
-];
-
 export const PaymentService = {
   /**
    * Fetches all recorded payments ordered by payment date descending
@@ -192,13 +141,16 @@ export const PaymentService = {
   async getLocalPayments(): Promise<Payment[]> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.PAYMENTS);
-      if (!data) {
-        await AsyncStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(INITIAL_SEED_PAYMENTS));
-        return INITIAL_SEED_PAYMENTS;
+      if (!data) return [];
+      const parsed: Payment[] = JSON.parse(data);
+      // Clean out any legacy seed entries
+      const sanitized = parsed.filter((p) => !p.id.includes('seed') && !p.id.includes('test'));
+      if (sanitized.length !== parsed.length) {
+        await AsyncStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(sanitized));
       }
-      return JSON.parse(data);
+      return sanitized;
     } catch {
-      return INITIAL_SEED_PAYMENTS;
+      return [];
     }
   },
 };
