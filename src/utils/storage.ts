@@ -8,12 +8,12 @@ const STORAGE_KEYS = {
 
 const DEFAULT_MOCK_STUDENTS: Student[] = [
   {
-    id: 'stu-ankur-test',
+    id: 'stu-aarav-seed',
     studentCode: 'STU-2026-0001',
-    name: 'Ankur (Admin Test)',
-    phone: '8574117424',
-    parentName: 'Guardian',
-    parentPhone: '8574117424',
+    name: 'Aarav Sharma',
+    phone: '9876543210',
+    parentName: 'Ramesh Sharma',
+    parentPhone: '9876543210',
     monthlyFee: 3500,
     outstandingAmount: 3500,
     status: 'active',
@@ -25,7 +25,7 @@ const DEFAULT_MOCK_STUDENTS: Student[] = [
     updatedAt: '2026-01-09T10:00:00Z',
   },
   {
-    id: 'stu-diya-test',
+    id: 'stu-diya-seed',
     studentCode: 'STU-2026-0002',
     name: 'Diya Patel',
     phone: '9876500001',
@@ -52,13 +52,12 @@ export const StorageService = {
         return DEFAULT_MOCK_STUDENTS;
       }
       const parsed: Student[] = JSON.parse(data);
-      // Ensure Ankur's test phone number 8574117424 is always present for testing
-      if (!parsed.some((s) => s.phone.includes('8574117424'))) {
-        const merged = [DEFAULT_MOCK_STUDENTS[0], ...parsed];
-        await AsyncStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(merged));
-        return merged;
+      // Clean out any previously saved test phone entries
+      const sanitized = parsed.filter((s) => !s.phone.includes('8574117424'));
+      if (sanitized.length !== parsed.length) {
+        await AsyncStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(sanitized));
       }
-      return parsed;
+      return sanitized.length > 0 ? sanitized : DEFAULT_MOCK_STUDENTS;
     } catch {
       return DEFAULT_MOCK_STUDENTS;
     }
