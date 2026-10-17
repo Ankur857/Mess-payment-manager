@@ -109,11 +109,6 @@ export default function RecordPaymentScreen() {
         student
       );
 
-      // Update student record in StudentContext
-      await updateStudent(student.id, {
-        status: student.status,
-      });
-
       // Show official receipt modal
       setCompletedPayment(result.payment);
       setReceiptDeadline(result.newDeadline);

@@ -66,26 +66,42 @@ export const StudentCard: React.FC<StudentCardProps> = ({
 
         <View style={styles.deadlineInfo}>
           <Text style={styles.deadlineLabel}>
-            {student.feeStatus === 'overdue' ? 'Overdue Since' : 'Next Due'}
+            {student.feeStatus === 'overdue'
+              ? 'Overdue Since'
+              : student.feeStatus === 'paid' && student.lastPaymentDate
+              ? 'Last Paid'
+              : 'Next Due'}
           </Text>
           <Text
             style={[
               styles.deadlineValue,
               student.feeStatus === 'overdue' ? styles.deadlineOverdue : null,
+              student.feeStatus === 'paid' ? styles.deadlinePaid : null,
             ]}
           >
-            {student.nextDeadline || 'N/A'}
+            {student.feeStatus === 'paid' && student.lastPaymentDate
+              ? student.lastPaymentDate
+              : student.nextDeadline || 'N/A'}
           </Text>
         </View>
 
         {onRecordPayment ? (
           <TouchableOpacity
-            style={styles.payButton}
+            style={[
+              styles.payButton,
+              student.feeStatus === 'paid' ? styles.paidButton : null,
+            ]}
             onPress={onRecordPayment}
             activeOpacity={0.7}
           >
-            <Ionicons name="card-outline" size={15} color={COLORS.white} />
-            <Text style={styles.payButtonText}>Pay</Text>
+            <Ionicons
+              name={student.feeStatus === 'paid' ? 'checkmark-circle' : 'card-outline'}
+              size={15}
+              color={COLORS.white}
+            />
+            <Text style={styles.payButtonText}>
+              {student.feeStatus === 'paid' ? 'Paid' : 'Pay'}
+            </Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -207,6 +223,10 @@ const styles = StyleSheet.create({
     color: COLORS.status.overdue,
     fontWeight: '700',
   },
+  deadlinePaid: {
+    color: COLORS.status.paid,
+    fontWeight: '700',
+  },
   payButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -215,6 +235,9 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.xs + 2,
     paddingHorizontal: SPACING.md,
     borderRadius: RADIUS.sm,
+  },
+  paidButton: {
+    backgroundColor: COLORS.status.paid,
   },
   payButtonText: {
     color: COLORS.white,
