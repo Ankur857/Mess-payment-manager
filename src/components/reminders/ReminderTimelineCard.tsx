@@ -9,6 +9,7 @@ import {
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../constants/theme';
 import { ReminderLog } from '../../types/reminder';
 import { formatDisplayDate } from '../../utils/date';
+import { openWhatsAppWithMessage } from '../../utils/whatsappHelper';
 import { ReminderStatusBadge } from './ReminderStatusBadge';
 
 interface ReminderTimelineCardProps {
@@ -97,10 +98,20 @@ export const ReminderTimelineCard: React.FC<ReminderTimelineCardProps> = ({
 
       {/* Action Buttons */}
       <View style={styles.actionRow}>
+        {/* Direct WhatsApp launcher with pre-filled message */}
+        <TouchableOpacity
+          style={styles.actionBtnWhatsApp}
+          onPress={() => openWhatsAppWithMessage(reminder.studentPhone, reminder.messageText)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="logo-whatsapp" size={15} color="#FFFFFF" />
+          <Text style={styles.actionBtnWhatsAppText}>Send WhatsApp</Text>
+        </TouchableOpacity>
+
         {reminder.status === 'pending' && onSendNow ? (
           <TouchableOpacity style={styles.actionBtnPrimary} onPress={onSendNow} activeOpacity={0.8}>
             <Ionicons name="checkmark-circle-outline" size={15} color={COLORS.white} />
-            <Text style={styles.actionBtnPrimaryText}>Mark as Notified</Text>
+            <Text style={styles.actionBtnPrimaryText}>Mark Notified</Text>
           </TouchableOpacity>
         ) : null}
 
@@ -255,8 +266,23 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
     paddingTop: SPACING.xs,
   },
-  actionBtnPrimary: {
+  actionBtnWhatsApp: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#25D366',
+    paddingVertical: SPACING.xs + 4,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  actionBtnWhatsAppText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  actionBtnPrimary: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

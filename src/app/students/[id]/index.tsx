@@ -22,6 +22,7 @@ import { COLORS, RADIUS, SHADOWS, SPACING } from '../../../constants/theme';
 import { usePayments } from '../../../context/PaymentContext';
 import { useStudents } from '../../../context/StudentContext';
 import { formatDisplayDate } from '../../../utils/date';
+import { openStudentWhatsApp } from '../../../utils/whatsappHelper';
 
 export default function StudentProfileScreen() {
   const router = useRouter();
@@ -166,16 +167,8 @@ export default function StudentProfileScreen() {
     }
   };
 
-  const handleWhatsApp = (phoneNumber: string) => {
-    const cleanDigits = phoneNumber.replace(/[^0-9]/g, '');
-    const internationalNumber = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
-    const url = `whatsapp://send?phone=${internationalNumber}`;
-    Linking.openURL(url).catch(() => {
-      // Fallback to web link
-      Linking.openURL(`https://wa.me/${internationalNumber}`).catch(() => {
-        Alert.alert('Error', 'Unable to open WhatsApp.');
-      });
-    });
+  const handleWhatsApp = () => {
+    openStudentWhatsApp(student);
   };
 
   const handleDeleteStudent = async () => {
@@ -274,6 +267,26 @@ export default function StudentProfileScreen() {
             style={styles.editButton}
           />
         </View>
+
+        {/* Prominent WhatsApp Fee Reminder Notice Button */}
+        {student.outstandingAmount > 0 ? (
+          <TouchableOpacity
+            style={styles.whatsappReminderBar}
+            onPress={handleWhatsApp}
+            activeOpacity={0.8}
+          >
+            <View style={styles.waIconCircle}>
+              <Ionicons name="logo-whatsapp" size={20} color="#FFFFFF" />
+            </View>
+            <View style={styles.waTextContainer}>
+              <Text style={styles.waTitle}>Send Fee Reminder on WhatsApp</Text>
+              <Text style={styles.waSubtitle}>
+                Pre-fills ₹{student.outstandingAmount.toLocaleString()} pending fee notice
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#15803D" />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {/* Last Payment Highlights Card */}
@@ -400,7 +413,7 @@ export default function StudentProfileScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.contactIconBtn, styles.whatsappBtn]}
-              onPress={() => handleWhatsApp(student.phone)}
+              onPress={handleWhatsApp}
             >
               <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
             </TouchableOpacity>
@@ -1082,5 +1095,42 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  whatsappReminderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginTop: SPACING.md,
+    gap: SPACING.md,
+  },
+  waIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#25D366',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#25D366',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  waTextContainer: {
+    flex: 1,
+  },
+  waTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#14532D',
+  },
+  waSubtitle: {
+    fontSize: 11,
+    color: '#15803D',
+    marginTop: 1,
   },
 });
