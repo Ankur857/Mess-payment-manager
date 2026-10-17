@@ -109,7 +109,7 @@ export const StudentService = {
           const studentPayments = allPayments.filter((p: any) => p.studentId === s.id);
           if (studentPayments.length > 0) {
             const latest = studentPayments[0];
-            const isPaid = s.outstandingAmount <= 0 || s.feeStatus === 'paid';
+            const isPaid = s.outstandingAmount <= 0 || s.feeStatus === 'paid' || latest.amount >= s.monthlyFee;
             const nextDeadline = s.nextDeadline || addCalendarDays(latest.paymentDate, 30);
             const daysLeft = getDaysRemaining(nextDeadline);
 

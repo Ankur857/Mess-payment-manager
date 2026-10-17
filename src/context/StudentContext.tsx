@@ -25,16 +25,38 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const recalculateStudentStatus = (student: Student): Student => {
     const daysLeft = getDaysRemaining(student.nextDeadline);
-    let feeStatus: StudentFeeStatus = student.feeStatus;
+    const isPaid = student.feeStatus === 'paid' || student.outstandingAmount <= 0;
 
-    if (student.outstandingAmount <= 0) {
-      feeStatus = 'paid';
-    } else if (daysLeft < 0) {
+    if (isPaid) {
+      if (daysLeft >= 0) {
+        // Paid cycle is still active: remain strictly 'paid' with 0 outstanding
+        return {
+          ...student,
+          daysRemaining: daysLeft,
+          outstandingAmount: 0,
+          feeStatus: 'paid',
+        };
+      } else {
+        // Full 30 days have elapsed: cycle expired, now overdue
+        return {
+          ...student,
+          daysRemaining: daysLeft,
+          feeStatus: 'overdue',
+          outstandingAmount: student.monthlyFee,
+        };
+      }
+    }
+
+    // Unpaid or partially paid student
+    let feeStatus: StudentFeeStatus;
+    if (daysLeft < 0) {
       feeStatus = 'overdue';
     } else if (daysLeft <= 3) {
       feeStatus = 'due';
-    } else {
+    } else if (student.outstandingAmount > 0 && student.outstandingAmount < student.monthlyFee) {
       feeStatus = 'partial';
+    } else {
+      feeStatus = 'due';
     }
 
     return {

@@ -47,8 +47,9 @@ export function evaluatePaymentPolicy(
   paymentDate: string,
   currentDeadline: string
 ): PaymentImpactResult {
-  const remaining = Math.max(0, currentOutstandingAmount - paymentAmount);
-  const isFullPayment = remaining === 0;
+  const effectiveDue = currentOutstandingAmount > 0 ? currentOutstandingAmount : currentMonthlyFee;
+  const remaining = Math.max(0, effectiveDue - paymentAmount);
+  const isFullPayment = remaining === 0 || paymentAmount >= currentMonthlyFee;
 
   if (isFullPayment) {
     const nextDeadline = calculateNextDeadline(paymentDate);
