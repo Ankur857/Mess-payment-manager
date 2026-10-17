@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { Button } from '../../components/common/Button';
@@ -16,7 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn, isMockMode } = useAuth();
+  const { signIn } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,37 +45,77 @@ export default function LoginScreen() {
     }
   };
 
+  const handleQuickFill = () => {
+    setEmail('admin@feemanager.com');
+    setPassword('admin123');
+    setError(null);
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
+      <StatusBar style="light" />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         {/* Brand Header */}
         <View style={styles.brandContainer}>
-          <View style={styles.logoCircle}>
-            <Ionicons name="shield-checkmark" size={44} color={COLORS.primary} />
+          {/* Logo Badge */}
+          <View style={styles.logoFrame}>
+            <Image
+              source={require('../../../assets/images/logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
-          <Text style={styles.brandTitle}>Fee Manager</Text>
-          <Text style={styles.brandSubtitle}>Single Admin Portal</Text>
+
+          {/* Restaurant Brand Titles */}
+          <Text style={styles.brandTitle}>RAGHUVANSHI</Text>
+          <Text style={styles.brandSubtitle}>RESTORENT & CAFE</Text>
+
+          {/* Tagline Banner */}
+          <View style={styles.taglineBadge}>
+            <View style={styles.taglineLine} />
+            <Text style={styles.taglineText}>✦ GOOD TIME, GREAT TEST ✦</Text>
+            <View style={styles.taglineLine} />
+          </View>
+
+          <Text style={styles.portalTag}>Mess & Fee Management Portal</Text>
         </View>
 
         {/* Login Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Admin Sign In</Text>
-          <Text style={styles.cardDescription}>
-            Enter your authorized credentials to access student records and fee ledger.
-          </Text>
-
-          <View style={styles.mockBanner}>
-            <Ionicons name="key-outline" size={16} color={COLORS.primaryDark} />
-            <Text style={styles.mockBannerText}>
-              Default Admin: <Text style={styles.boldText}>admin@feemanager.com</Text> • Password: <Text style={styles.boldText}>admin123</Text>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Admin Sign In</Text>
+            <Text style={styles.cardDescription}>
+              Authorized manager access for student records and fee ledger.
             </Text>
           </View>
+
+          {/* Quick Admin Helper Banner */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleQuickFill}
+            style={styles.mockBanner}
+          >
+            <View style={styles.mockBannerIcon}>
+              <Ionicons name="key" size={16} color="#D97706" />
+            </View>
+            <View style={styles.mockBannerContent}>
+              <Text style={styles.mockBannerTitle}>Default Admin Credentials</Text>
+              <Text style={styles.mockBannerText}>
+                admin@feemanager.com • admin123
+              </Text>
+            </View>
+            <View style={styles.fillChip}>
+              <Text style={styles.fillChipText}>Tap to Fill</Text>
+            </View>
+          </TouchableOpacity>
 
           {error ? (
             <View style={styles.errorBox}>
@@ -101,16 +144,16 @@ export default function LoginScreen() {
           />
 
           <Button
-            title="Sign In as Admin"
+            title="Sign In to Portal"
             onPress={handleLogin}
             loading={loading}
             style={styles.loginButton}
           />
 
           <View style={styles.badgeInfo}>
-            <Ionicons name="lock-closed" size={14} color={COLORS.primary} />
+            <Ionicons name="shield-checkmark" size={14} color="#D97706" />
             <Text style={styles.badgeInfoText}>
-              Protected by Supabase Row Level Security
+              Raghuvanshi Restorent & Cafe • Single Admin System
             </Text>
           </View>
         </View>
@@ -122,78 +165,141 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#0A0D0A',
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: SPACING.xl,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.xxl,
   },
   brandContainer: {
     alignItems: 'center',
-    marginBottom: SPACING.xxl,
+    marginBottom: SPACING.xl,
   },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.primaryLight,
+  logoFrame: {
+    width: 130,
+    height: 130,
+    borderRadius: 24,
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.md,
-    borderWidth: 2,
-    borderColor: COLORS.primaryBorder,
+    borderWidth: 1.5,
+    borderColor: '#D4AF37',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: 120,
+    height: 120,
   },
   brandTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: COLORS.header,
-    letterSpacing: -0.5,
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 2.5,
+    textAlign: 'center',
   },
   brandSubtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#F59E0B',
+    letterSpacing: 2,
     marginTop: 2,
+    textAlign: 'center',
+  },
+  taglineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+    gap: 8,
+  },
+  taglineLine: {
+    width: 24,
+    height: 1,
+    backgroundColor: '#B45309',
+  },
+  taglineText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FDE68A',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  portalTag: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
   card: {
-    backgroundColor: COLORS.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: RADIUS.xl,
     padding: SPACING.xl,
     borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+    borderColor: '#E5E7EB',
     ...SHADOWS.cardElevated,
+  },
+  cardHeader: {
+    marginBottom: SPACING.md,
   },
   cardTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
+    fontWeight: '800',
+    color: '#111827',
     marginBottom: 4,
   },
   cardDescription: {
     fontSize: 13,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.md,
+    color: '#4B5563',
     lineHeight: 18,
   },
   mockBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLORS.primaryLight,
+    gap: 10,
+    backgroundColor: '#FFFBEB',
     padding: SPACING.md,
     borderRadius: RADIUS.md,
     marginBottom: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.primaryBorder,
+    borderColor: '#FDE68A',
+  },
+  mockBannerIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mockBannerContent: {
+    flex: 1,
+  },
+  mockBannerTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
   },
   mockBannerText: {
-    flex: 1,
     fontSize: 11,
-    color: COLORS.primaryDark,
-    lineHeight: 16,
+    color: '#B45309',
+    marginTop: 1,
   },
-  boldText: {
+  fillChip: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  fillChipText: {
+    color: '#FFFFFF',
+    fontSize: 10,
     fontWeight: '700',
   },
   errorBox: {
@@ -213,6 +319,7 @@ const styles = StyleSheet.create({
   },
   loginButton: {
     marginTop: SPACING.sm,
+    backgroundColor: '#107C41',
   },
   badgeInfo: {
     flexDirection: 'row',
@@ -222,11 +329,12 @@ const styles = StyleSheet.create({
     marginTop: SPACING.lg,
     paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.cardBorder,
+    borderTopColor: '#F3F4F6',
   },
   badgeInfoText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
+    fontSize: 11,
+    color: '#6B7280',
     fontWeight: '500',
+    textAlign: 'center',
   },
 });
