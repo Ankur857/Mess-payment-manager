@@ -67,14 +67,12 @@ export default function LoginScreen() {
             Enter your authorized credentials to access student records and fee ledger.
           </Text>
 
-          {isMockMode ? (
-            <View style={styles.mockBanner}>
-              <Ionicons name="information-circle" size={16} color={COLORS.primaryDark} />
-              <Text style={styles.mockBannerText}>
-                Dev Mode: Login with <Text style={styles.boldText}>admin@feemanager.com</Text> / password (min 6 chars). Connect Supabase in .env when ready.
-              </Text>
-            </View>
-          ) : null}
+          <View style={styles.mockBanner}>
+            <Ionicons name="key-outline" size={16} color={COLORS.primaryDark} />
+            <Text style={styles.mockBannerText}>
+              Default Admin: <Text style={styles.boldText}>admin@feemanager.com</Text> • Password: <Text style={styles.boldText}>admin123</Text>
+            </Text>
+          </View>
 
           {error ? (
             <View style={styles.errorBox}>

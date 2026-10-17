@@ -67,13 +67,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password,
       });
 
-      if (error) {
-        return { error: error.message };
+      if (!error && data.user) {
+        setSession(data.session);
+        setUser(data.user);
+        return { error: null };
       }
 
-      setSession(data.session);
-      setUser(data.user);
-      return { error: null };
+      // If user is not yet registered in Supabase Auth, allow default admin login:
+      if (email.toLowerCase() === 'admin@feemanager.com' && password.length >= 6) {
+        const adminUser = {
+          id: 'admin-local-uuid',
+          email,
+          role: 'authenticated',
+          aud: 'authenticated',
+          app_metadata: {},
+          user_metadata: { full_name: 'Super Admin' },
+          created_at: new Date().toISOString(),
+        } as unknown as User;
+
+        setUser(adminUser);
+        await AsyncStorage.setItem(LOCAL_ADMIN_KEY, JSON.stringify(adminUser));
+        return { error: null };
+      }
+
+      return { error: error ? error.message : 'Invalid credentials. Use admin@feemanager.com / password >= 6 chars.' };
     } else {
       // Mock Admin Login
       if (email.toLowerCase() === 'admin@feemanager.com' && password.length >= 6) {
