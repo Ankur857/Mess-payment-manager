@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Image,
   StyleSheet,
@@ -22,6 +22,8 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   onPress,
   onRecordPayment,
 }) => {
+  const [imageError, setImageError] = useState(false);
+
   return (
     <TouchableOpacity
       activeOpacity={0.85}
@@ -30,8 +32,13 @@ export const StudentCard: React.FC<StudentCardProps> = ({
     >
       <View style={styles.topRow}>
         <View style={styles.avatarContainer}>
-          {student.photoUrl ? (
-            <Image source={{ uri: student.photoUrl }} style={styles.avatarImage} />
+          {student.photoUrl && !imageError ? (
+            <Image
+              source={{ uri: student.photoUrl }}
+              style={styles.avatarImage}
+              resizeMode="cover"
+              onError={() => setImageError(true)}
+            />
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Text style={styles.avatarText}>

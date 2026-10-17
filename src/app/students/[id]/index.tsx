@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -23,9 +24,10 @@ import { formatDisplayDate } from '../../../utils/date';
 export default function StudentProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { getStudentById, toggleStudentStatus, loading: studentLoading } = useStudents();
+  const { getStudentById, toggleStudentStatus, updateStudent, loading: studentLoading } = useStudents();
   const { getStudentPayments } = usePayments();
   const [archiveVisible, setArchiveVisible] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const student = getStudentById(String(id));
   const studentPayments = student ? getStudentPayments(student.id) : [];
@@ -60,6 +62,89 @@ export default function StudentProfileScreen() {
   const lastPaymentDate = latestPayment ? latestPayment.paymentDate : student.lastPaymentDate;
   const lastPaymentMethod = latestPayment ? latestPayment.paymentMethod : null;
   const lastPaymentRef = latestPayment ? latestPayment.transactionRef : null;
+
+  const handleCapturePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Camera permission is required.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const newUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setImageError(false);
+        await updateStudent(student.id, { photoUrl: newUri });
+        Alert.alert('Success 🎉', 'Student profile photo updated.');
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to capture photo.');
+    }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Media library permission is required.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const newUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setImageError(false);
+        await updateStudent(student.id, { photoUrl: newUri });
+        Alert.alert('Success 🎉', 'Student profile photo updated.');
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to select photo.');
+    }
+  };
+
+  const handlePhotoOptions = () => {
+    Alert.alert(
+      'Profile Photo Options',
+      'Change or remove student photo:',
+      [
+        { text: 'Take Photo (Camera)', onPress: handleCapturePhoto },
+        { text: 'Choose from Gallery', onPress: handlePickImage },
+        ...(student.photoUrl
+          ? [
+              {
+                text: 'Remove Photo',
+                style: 'destructive' as const,
+                onPress: async () => {
+                  try {
+                    await updateStudent(student.id, { photoUrl: '' });
+                    setImageError(false);
+                  } catch {
+                    Alert.alert('Error', 'Failed to remove photo.');
+                  }
+                },
+              },
+            ]
+          : []),
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
 
   const handleCall = (phoneNumber: string) => {
     const cleanNumber = phoneNumber.replace(/[^0-9+]/g, '');
@@ -102,17 +187,32 @@ export default function StudentProfileScreen() {
       {/* Profile Header Card */}
       <View style={styles.profileHeaderCard}>
         <View style={styles.avatarRow}>
-          <View style={styles.avatarContainer}>
-            {student.photoUrl ? (
-              <Image source={{ uri: student.photoUrl }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarInitial}>
-                  {student.name.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
-          </View>
+          <TouchableOpacity
+            style={styles.avatarTouchWrapper}
+            onPress={handlePhotoOptions}
+            activeOpacity={0.8}
+          >
+            <View style={styles.avatarContainer}>
+              {student.photoUrl && !imageError ? (
+                <Image
+                  source={{ uri: student.photoUrl }}
+                  style={styles.avatar}
+                  resizeMode="cover"
+                  onError={() => setImageError(true)}
+                />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarInitial}>
+                    {student.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.cameraBadge}>
+              <Ionicons name="camera" size={13} color={COLORS.white} />
+            </View>
+          </TouchableOpacity>
+
           <View style={styles.profileMeta}>
             <View style={styles.nameRow}>
               <Text style={styles.name} numberOfLines={1}>
@@ -430,30 +530,48 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
     marginBottom: SPACING.lg,
   },
+  avatarTouchWrapper: {
+    position: 'relative',
+  },
   avatarContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     overflow: 'hidden',
+    backgroundColor: COLORS.card,
+    borderWidth: 2,
+    borderColor: COLORS.primaryBorder,
   },
   avatar: {
-    width: 64,
-    height: 64,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
   },
   avatarPlaceholder: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: COLORS.primaryBorder,
   },
   avatarInitial: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '800',
     color: COLORS.primary,
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.card,
   },
   profileMeta: {
     flex: 1,
