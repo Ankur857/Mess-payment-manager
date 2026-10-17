@@ -18,7 +18,7 @@ import { COLORS, RADIUS, SPACING } from '../../constants/theme';
 import { useStudents } from '../../context/StudentContext';
 import { StudentFeeStatus } from '../../types/student';
 
-type FilterType = 'all' | StudentFeeStatus | 'inactive';
+type FilterType = 'all' | StudentFeeStatus;
 
 export default function StudentsScreen() {
   const router = useRouter();
@@ -45,8 +45,7 @@ export default function StudentsScreen() {
       if (!matchSearch) return false;
 
       if (activeFilter === 'all') return true;
-      if (activeFilter === 'inactive') return item.status === 'inactive';
-      return item.feeStatus === activeFilter && item.status === 'active';
+      return item.feeStatus === activeFilter;
     });
   }, [students, search, activeFilter]);
 
@@ -55,7 +54,6 @@ export default function StudentsScreen() {
     { label: 'Overdue', value: 'overdue' },
     { label: 'Due Soon', value: 'due' },
     { label: 'Paid', value: 'paid' },
-    { label: 'Inactive', value: 'inactive' },
   ];
 
   if (loading && !refreshing) {

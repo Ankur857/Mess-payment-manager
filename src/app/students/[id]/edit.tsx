@@ -22,7 +22,7 @@ import { useStudents } from '../../../context/StudentContext';
 export default function EditStudentScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { getStudentById, updateStudent, loading: contextLoading } = useStudents();
+  const { getStudentById, updateStudent, deleteStudent, loading: contextLoading } = useStudents();
 
   const student = getStudentById(String(id));
 
@@ -59,6 +59,30 @@ export default function EditStudentScreen() {
       </View>
     );
   }
+
+  const handleDeleteStudent = () => {
+    Alert.alert(
+      'Delete Student Permanently',
+      `Are you sure you want to permanently delete ${student.name} (${student.studentCode})? All records will be removed from the database and this action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Permanently',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteStudent(student.id);
+              Alert.alert('Student Deleted', `${student.name} has been permanently removed.`, [
+                { text: 'OK', onPress: () => router.replace('/(tabs)/students') },
+              ]);
+            } catch {
+              Alert.alert('Error', 'Failed to delete student.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handlePickImage = async () => {
     try {
@@ -252,6 +276,15 @@ export default function EditStudentScreen() {
             loading={loading}
             style={styles.saveBtn}
           />
+
+          <TouchableOpacity
+            style={styles.deleteBtn}
+            onPress={handleDeleteStudent}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trash-outline" size={17} color={COLORS.error} />
+            <Text style={styles.deleteText}>Delete Student Permanently</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -387,5 +420,22 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     marginTop: SPACING.md,
+  },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: SPACING.md,
+    backgroundColor: '#FEE2E2',
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    marginTop: SPACING.md,
+  },
+  deleteText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.error,
   },
 });

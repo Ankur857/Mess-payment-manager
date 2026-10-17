@@ -24,9 +24,9 @@ import { formatDisplayDate } from '../../../utils/date';
 export default function StudentProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { getStudentById, toggleStudentStatus, updateStudent, loading: studentLoading } = useStudents();
+  const { getStudentById, deleteStudent, updateStudent, loading: studentLoading } = useStudents();
   const { getStudentPayments } = usePayments();
-  const [archiveVisible, setArchiveVisible] = useState(false);
+  const [deleteVisible, setDeleteVisible] = useState(false);
   const [imageError, setImageError] = useState(false);
 
   const student = getStudentById(String(id));
@@ -167,18 +167,22 @@ export default function StudentProfileScreen() {
     });
   };
 
-  const handleToggleStatus = async () => {
+  const handleDeleteStudent = async () => {
     try {
-      await toggleStudentStatus(student.id);
-      setArchiveVisible(false);
+      setDeleteVisible(false);
+      await deleteStudent(student.id);
       Alert.alert(
-        'Status Updated',
-        student.status === 'active'
-          ? 'Student has been deactivated. Automatic reminders are paused.'
-          : 'Student has been reactivated.'
+        'Student Deleted',
+        `${student.name} has been permanently removed from the database.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/(tabs)/students'),
+          },
+        ]
       );
     } catch {
-      Alert.alert('Error', 'Failed to update student status.');
+      Alert.alert('Error', 'Failed to delete student.');
     }
   };
 
@@ -222,7 +226,6 @@ export default function StudentProfileScreen() {
             <Text style={styles.codeText}>{student.studentCode}</Text>
             <View style={styles.badgeRow}>
               <Badge status={student.feeStatus} />
-              <Badge status={student.status} />
             </View>
           </View>
         </View>
@@ -449,38 +452,24 @@ export default function StudentProfileScreen() {
         )}
       </View>
 
-      {/* Deactivate / Archive Action */}
+      {/* Permanent Delete Action */}
       <TouchableOpacity
-        style={styles.deactivateBtn}
-        onPress={() => setArchiveVisible(true)}
+        style={styles.deleteBtn}
+        onPress={() => setDeleteVisible(true)}
+        activeOpacity={0.7}
       >
-        <Ionicons
-          name={student.status === 'active' ? 'archive-outline' : 'refresh-outline'}
-          size={16}
-          color={student.status === 'active' ? COLORS.error : COLORS.primary}
-        />
-        <Text
-          style={[
-            styles.deactivateText,
-            { color: student.status === 'active' ? COLORS.error : COLORS.primary },
-          ]}
-        >
-          {student.status === 'active' ? 'Deactivate / Archive Student' : 'Reactivate Student'}
-        </Text>
+        <Ionicons name="trash-outline" size={17} color={COLORS.error} />
+        <Text style={styles.deleteText}>Delete Student Permanently</Text>
       </TouchableOpacity>
 
       <ConfirmDialog
-        visible={archiveVisible}
-        title={student.status === 'active' ? 'Deactivate Student' : 'Reactivate Student'}
-        message={
-          student.status === 'active'
-            ? 'Deactivating preserves all payment history while pausing automated reminders.'
-            : 'Reactivating restores active status and reminder eligibility.'
-        }
-        confirmText={student.status === 'active' ? 'Deactivate' : 'Reactivate'}
-        isDestructive={student.status === 'active'}
-        onConfirm={handleToggleStatus}
-        onCancel={() => setArchiveVisible(false)}
+        visible={deleteVisible}
+        title="Delete Student Permanently"
+        message={`Are you sure you want to permanently delete ${student.name} (${student.studentCode})? All records will be removed from the database and this action cannot be undone.`}
+        confirmText="Delete Permanently"
+        isDestructive={true}
+        onConfirm={handleDeleteStudent}
+        onCancel={() => setDeleteVisible(false)}
       />
     </ScrollView>
   );
@@ -852,16 +841,22 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     paddingVertical: SPACING.md,
   },
-  deactivateBtn: {
+  deleteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     paddingVertical: SPACING.md,
-    marginBottom: SPACING.lg,
+    backgroundColor: '#FEE2E2',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xxl,
   },
-  deactivateText: {
+  deleteText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: COLORS.error,
   },
 });
