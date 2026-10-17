@@ -143,15 +143,15 @@ ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reminder_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reminder_templates ENABLE ROW LEVEL SECURITY;
 
--- Helper function: is current user an authenticated admin?
+-- Helper function: is current user an authorized admin (authenticated or client anon session)?
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
 BEGIN
-    RETURN (auth.role() = 'authenticated');
+    RETURN (auth.role() = 'authenticated' OR auth.role() = 'anon');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Policies for Authenticated Admin
+-- Policies for Admin Access
 CREATE POLICY "Admins have full access to admin_profiles"
     ON public.admin_profiles FOR ALL
     USING (public.is_admin())
@@ -187,9 +187,9 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('student-photos', 'student-photos', true)
 ON CONFLICT (id) DO NOTHING;
 
-CREATE POLICY "Authenticated admins can upload student photos"
+CREATE POLICY "Allow photo uploads"
     ON storage.objects FOR INSERT
-    WITH CHECK (bucket_id = 'student-photos' AND auth.role() = 'authenticated');
+    WITH CHECK (bucket_id = 'student-photos');
 
 CREATE POLICY "Public can view student photos"
     ON storage.objects FOR SELECT
