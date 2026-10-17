@@ -48,11 +48,14 @@ export default function AddStudentScreen() {
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.6,
+        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
-        setPhotoUri(result.assets[0].uri);
+        const asset = result.assets[0];
+        const uri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setPhotoUri(uri);
       }
     } catch {
       Alert.alert('Error', 'Failed to pick photo.');
@@ -70,11 +73,14 @@ export default function AddStudentScreen() {
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.6,
+        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
-        setPhotoUri(result.assets[0].uri);
+        const asset = result.assets[0];
+        const uri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setPhotoUri(uri);
       }
     } catch {
       Alert.alert('Error', 'Failed to capture photo.');
@@ -155,6 +161,15 @@ export default function AddStudentScreen() {
               <Ionicons name="images" size={16} color={COLORS.primary} />
               <Text style={styles.photoActionText}>Gallery</Text>
             </TouchableOpacity>
+            {photoUri ? (
+              <TouchableOpacity
+                style={[styles.photoActionButton, styles.photoRemoveButton]}
+                onPress={() => setPhotoUri(null)}
+              >
+                <Ionicons name="trash-outline" size={16} color={COLORS.error} />
+                <Text style={[styles.photoActionText, { color: COLORS.error }]}>Remove</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
@@ -259,6 +274,10 @@ const styles = StyleSheet.create({
   photo: {
     width: '100%',
     height: '100%',
+    borderRadius: 52,
+  },
+  photoRemoveButton: {
+    borderColor: COLORS.error + '40',
   },
   photoPlaceholder: {
     flex: 1,

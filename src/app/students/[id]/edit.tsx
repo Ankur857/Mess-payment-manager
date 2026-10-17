@@ -62,18 +62,52 @@ export default function EditStudentScreen() {
 
   const handlePickImage = async () => {
     try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Camera roll permission is required to select student photo.');
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.6,
+        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
-        setPhotoUri(result.assets[0].uri);
+        const asset = result.assets[0];
+        const uri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setPhotoUri(uri);
       }
     } catch {
       Alert.alert('Error', 'Failed to pick photo.');
+    }
+  };
+
+  const handleCapturePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Camera permission is required to capture photo.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const uri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setPhotoUri(uri);
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to capture photo.');
     }
   };
 
@@ -99,7 +133,7 @@ export default function EditStudentScreen() {
         parentName: parentName.trim() || undefined,
         parentPhone: parentPhone.trim() || undefined,
         monthlyFee: Number(monthlyFee),
-        photoUrl: photoUri || undefined,
+        photoUrl: photoUri || '',
       });
 
       setLoading(false);
@@ -138,10 +172,25 @@ export default function EditStudentScreen() {
               </View>
             )}
           </View>
-          <TouchableOpacity style={styles.photoChangeBtn} onPress={handlePickImage}>
-            <Ionicons name="camera-reverse-outline" size={16} color={COLORS.primary} />
-            <Text style={styles.photoChangeText}>Change Photo</Text>
-          </TouchableOpacity>
+          <View style={styles.photoButtonRow}>
+            <TouchableOpacity style={styles.photoActionButton} onPress={handleCapturePhoto}>
+              <Ionicons name="camera" size={16} color={COLORS.primary} />
+              <Text style={styles.photoActionText}>Camera</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.photoActionButton} onPress={handlePickImage}>
+              <Ionicons name="images" size={16} color={COLORS.primary} />
+              <Text style={styles.photoActionText}>Gallery</Text>
+            </TouchableOpacity>
+            {photoUri ? (
+              <TouchableOpacity
+                style={[styles.photoActionButton, styles.photoRemoveButton]}
+                onPress={() => setPhotoUri(null)}
+              >
+                <Ionicons name="trash-outline" size={16} color={COLORS.error} />
+                <Text style={[styles.photoActionText, { color: COLORS.error }]}>Remove</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
 
         {/* Form Card */}
@@ -270,6 +319,7 @@ const styles = StyleSheet.create({
   photo: {
     width: '100%',
     height: '100%',
+    borderRadius: 48,
   },
   photoPlaceholder: {
     flex: 1,
@@ -277,7 +327,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.primaryLight,
   },
-  photoChangeBtn: {
+  photoButtonRow: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  photoActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -288,10 +342,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
   },
-  photoChangeText: {
+  photoActionText: {
     fontSize: 12,
     fontWeight: '600',
     color: COLORS.primary,
+  },
+  photoRemoveButton: {
+    borderColor: COLORS.error + '40',
   },
   formCard: {
     backgroundColor: COLORS.card,
