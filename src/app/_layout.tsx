@@ -1,6 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
 import { AuthProvider } from '../context/AuthContext';
@@ -9,6 +10,16 @@ import { ReminderProvider } from '../context/ReminderContext';
 import { StudentProvider } from '../context/StudentContext';
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Purge legacy v1 demo cache on launch
+    AsyncStorage.multiRemove([
+      '@fee_manager_payments_v1',
+      '@fee_manager_students_v1',
+      '@fee_manager_reminders_v1',
+      '@fee_manager_student_sequence_v1',
+    ]).catch(() => {});
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AuthProvider>

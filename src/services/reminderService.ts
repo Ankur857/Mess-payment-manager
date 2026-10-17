@@ -5,7 +5,7 @@ import { generateMockProviderMessageId } from '../utils/reminderEngine';
 import { WhatsAppApiService } from './whatsappApiService';
 
 const STORAGE_KEYS = {
-  REMINDERS: '@fee_manager_reminders_v1',
+  REMINDERS: '@fee_manager_reminders_v2',
 };
 
 export const ReminderService = {
