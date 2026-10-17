@@ -23,10 +23,11 @@ export const ReminderService = {
       if (error) throw error;
 
       if (!data || data.length === 0) {
-        return await this.getLocalReminders();
+        await AsyncStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify([]));
+        return [];
       }
 
-      return data.map((row: any) => ({
+      const mapped = data.map((row: any) => ({
         id: row.id,
         studentId: row.student_id,
         studentName: row.message_text.split(',')[0].replace('Dear ', '').trim() || 'Student',
@@ -46,6 +47,8 @@ export const ReminderService = {
         isMock: row.is_mock ?? true,
         createdAt: row.created_at,
       }));
+      await AsyncStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(mapped));
+      return mapped;
     } catch (err) {
       console.warn('Failed to fetch reminder logs from Supabase, using local fallback:', err);
       return await this.getLocalReminders();

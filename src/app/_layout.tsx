@@ -11,12 +11,16 @@ import { StudentProvider } from '../context/StudentContext';
 
 export default function RootLayout() {
   useEffect(() => {
-    // Purge legacy v1 demo cache on launch
+    // Purge cached data on launch to guarantee 100% clean sync with database
     AsyncStorage.multiRemove([
       '@fee_manager_payments_v1',
       '@fee_manager_students_v1',
       '@fee_manager_reminders_v1',
       '@fee_manager_student_sequence_v1',
+      '@fee_manager_payments_v2',
+      '@fee_manager_students_v2',
+      '@fee_manager_reminders_v2',
+      '@fee_manager_student_sequence_v2',
     ]).catch(() => {});
   }, []);
 
