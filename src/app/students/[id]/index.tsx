@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import {
   Alert,
   Image,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -49,6 +50,37 @@ export default function StudentProfileScreen() {
       </View>
     );
   }
+
+  const latestPayment = studentPayments.length > 0 ? studentPayments[0] : null;
+  const lastPaymentAmount = latestPayment
+    ? latestPayment.amount
+    : student.lastPaymentDate
+    ? student.monthlyFee
+    : null;
+  const lastPaymentDate = latestPayment ? latestPayment.paymentDate : student.lastPaymentDate;
+  const lastPaymentMethod = latestPayment ? latestPayment.paymentMethod : null;
+  const lastPaymentRef = latestPayment ? latestPayment.transactionRef : null;
+
+  const handleCall = (phoneNumber: string) => {
+    const cleanNumber = phoneNumber.replace(/[^0-9+]/g, '');
+    if (cleanNumber) {
+      Linking.openURL(`tel:${cleanNumber}`).catch(() => {
+        Alert.alert('Error', 'Unable to initiate phone call on this device.');
+      });
+    }
+  };
+
+  const handleWhatsApp = (phoneNumber: string) => {
+    const cleanDigits = phoneNumber.replace(/[^0-9]/g, '');
+    const internationalNumber = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
+    const url = `whatsapp://send?phone=${internationalNumber}`;
+    Linking.openURL(url).catch(() => {
+      // Fallback to web link
+      Linking.openURL(`https://wa.me/${internationalNumber}`).catch(() => {
+        Alert.alert('Error', 'Unable to open WhatsApp.');
+      });
+    });
+  };
 
   const handleToggleStatus = async () => {
     try {
@@ -123,6 +155,55 @@ export default function StudentProfileScreen() {
         </View>
       </View>
 
+      {/* Last Payment Highlights Card */}
+      <View style={styles.lastPaymentCard}>
+        <View style={styles.cardHeader}>
+          <View style={styles.headerIconWrapper}>
+            <Ionicons name="receipt" size={18} color={COLORS.status.paid} />
+          </View>
+          <Text style={styles.cardTitle}>Last Payment Record</Text>
+        </View>
+
+        {lastPaymentDate ? (
+          <View style={styles.lastPaymentContent}>
+            <View style={styles.lastPaymentHeroRow}>
+              <View>
+                <Text style={styles.lastPaymentLabel}>Last Paid Amount</Text>
+                <Text style={styles.lastPaymentHeroAmount}>
+                  ₹{(lastPaymentAmount ?? student.monthlyFee).toLocaleString()}
+                </Text>
+              </View>
+              <View style={styles.lastPaymentDatePill}>
+                <Ionicons name="checkmark-circle" size={15} color={COLORS.status.paid} />
+                <Text style={styles.lastPaymentDateText}>
+                  {formatDisplayDate(lastPaymentDate)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.lastPaymentMetaBar}>
+              <View style={styles.lastPaymentMetaCol}>
+                <Text style={styles.metaLabel}>Payment Mode</Text>
+                <Text style={styles.metaVal}>
+                  {lastPaymentMethod ? lastPaymentMethod.replace('_', ' ').toUpperCase() : 'DIRECT'}
+                </Text>
+              </View>
+              <View style={styles.lastPaymentMetaCol}>
+                <Text style={styles.metaLabel}>Reference / Receipt</Text>
+                <Text style={styles.metaVal} numberOfLines={1}>
+                  {lastPaymentRef || 'Direct Entry'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.noPaymentNotice}>
+            <Ionicons name="time-outline" size={20} color={COLORS.textMuted} />
+            <Text style={styles.noPaymentNoticeText}>No payment has been recorded yet.</Text>
+          </View>
+        )}
+      </View>
+
       {/* 30-Day Billing Cycle Status Card */}
       <View style={styles.billingCard}>
         <View style={styles.cardHeader}>
@@ -134,7 +215,7 @@ export default function StudentProfileScreen() {
           <View style={styles.billingItem}>
             <Text style={styles.billingLabel}>Last Payment Date</Text>
             <Text style={styles.billingValue}>
-              {student.lastPaymentDate ? formatDisplayDate(student.lastPaymentDate) : 'None Recorded'}
+              {lastPaymentDate ? formatDisplayDate(lastPaymentDate) : 'None Recorded'}
             </Text>
           </View>
           <View style={styles.billingItem}>
@@ -189,6 +270,20 @@ export default function StudentProfileScreen() {
             <Text style={styles.infoLabel}>Student WhatsApp / Phone</Text>
             <Text style={styles.infoValue}>{student.phone}</Text>
           </View>
+          <View style={styles.contactActionButtons}>
+            <TouchableOpacity
+              style={styles.contactIconBtn}
+              onPress={() => handleCall(student.phone)}
+            >
+              <Ionicons name="call" size={16} color={COLORS.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.contactIconBtn, styles.whatsappBtn]}
+              onPress={() => handleWhatsApp(student.phone)}
+            >
+              <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {student.parentName ? (
@@ -202,6 +297,14 @@ export default function StudentProfileScreen() {
                 {student.parentName} {student.parentPhone ? `(${student.parentPhone})` : ''}
               </Text>
             </View>
+            {student.parentPhone ? (
+              <TouchableOpacity
+                style={styles.contactIconBtn}
+                onPress={() => handleCall(student.parentPhone!)}
+              >
+                <Ionicons name="call" size={16} color={COLORS.primary} />
+              </TouchableOpacity>
+            ) : null}
           </View>
         ) : null}
 
@@ -218,17 +321,27 @@ export default function StudentProfileScreen() {
 
       {/* Payment Ledger for This Student */}
       <View style={styles.infoCard}>
-        <Text style={styles.cardTitle}>Payment Ledger</Text>
+        <View style={styles.cardHeader}>
+          <Ionicons name="file-tray-full-outline" size={18} color={COLORS.primary} />
+          <Text style={styles.cardTitle}>Complete Payment Ledger</Text>
+        </View>
         {studentPayments.length > 0 ? (
           studentPayments.map((payment) => (
             <View key={payment.id} style={styles.historyRow}>
-              <View>
+              <View style={styles.historyLeft}>
                 <Text style={styles.historyAmount}>+₹{payment.amount.toLocaleString()}</Text>
                 <Text style={styles.historyDate}>
                   {formatDisplayDate(payment.paymentDate)} • {payment.paymentMethod.replace('_', ' ').toUpperCase()}
                 </Text>
               </View>
-              <Text style={styles.historyRef}>{payment.transactionRef || 'Direct'}</Text>
+              <View style={styles.historyRight}>
+                <Text style={styles.historyRef}>{payment.transactionRef || 'Direct Receipt'}</Text>
+                {payment.notes ? (
+                  <Text style={styles.historyNotes} numberOfLines={1}>
+                    {payment.notes}
+                  </Text>
+                ) : null}
+              </View>
             </View>
           ))
         ) : (
@@ -477,6 +590,120 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.textPrimary,
     marginTop: 1,
+  },
+  lastPaymentCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+    borderWidth: 1.5,
+    borderColor: COLORS.status.paid + '40',
+    ...SHADOWS.card,
+  },
+  headerIconWrapper: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.status.paid + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lastPaymentContent: {
+    marginTop: 4,
+  },
+  lastPaymentHeroRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  lastPaymentLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  lastPaymentHeroAmount: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: COLORS.status.paid,
+    marginTop: 2,
+  },
+  lastPaymentDatePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.status.paid + '15',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+  },
+  lastPaymentDateText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.status.paid,
+  },
+  lastPaymentMetaBar: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    gap: SPACING.md,
+  },
+  lastPaymentMetaCol: {
+    flex: 1,
+  },
+  metaLabel: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  metaVal: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginTop: 2,
+  },
+  noPaymentNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: SPACING.sm,
+  },
+  noPaymentNoticeText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
+  },
+  contactActionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  contactIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+  },
+  whatsappBtn: {
+    backgroundColor: '#DCF8C6',
+    borderColor: '#25D36640',
+  },
+  historyLeft: {
+    flex: 1,
+  },
+  historyRight: {
+    alignItems: 'flex-end',
+  },
+  historyNotes: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 2,
   },
   historyRow: {
     flexDirection: 'row',

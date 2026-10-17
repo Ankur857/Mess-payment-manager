@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   RefreshControl,
   ScrollView,
@@ -19,12 +19,15 @@ import { useReminders } from '../../context/ReminderContext';
 import { useStudents } from '../../context/StudentContext';
 import { FeeSummary } from '../../types/payment';
 
+type StudentTabFilter = 'all' | 'paid' | 'due' | 'overdue';
+
 export default function DashboardScreen() {
   const router = useRouter();
   const { students, refreshStudents } = useStudents();
   const { payments, refreshPayments } = usePayments();
   const { reminders, refreshReminders } = useReminders();
   const [refreshing, setRefreshing] = useState(false);
+  const [studentFilter, setStudentFilter] = useState<StudentTabFilter>('all');
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -33,6 +36,7 @@ export default function DashboardScreen() {
   };
 
   const activeStudents = students.filter((s) => s.status === 'active');
+  const paidStudents = activeStudents.filter((s) => s.feeStatus === 'paid');
   const overdueStudents = activeStudents.filter((s) => s.feeStatus === 'overdue');
   const dueSoonStudents = activeStudents.filter((s) => s.feeStatus === 'due');
   const totalOutstanding = activeStudents.reduce((sum, s) => sum + s.outstandingAmount, 0);
@@ -48,7 +52,21 @@ export default function DashboardScreen() {
     upcomingRemindersCount: pendingRemindersCount,
   };
 
-  const recentPayments = payments.slice(0, 3);
+  const displayedStudents = useMemo(() => {
+    switch (studentFilter) {
+      case 'paid':
+        return paidStudents;
+      case 'due':
+        return dueSoonStudents;
+      case 'overdue':
+        return overdueStudents;
+      case 'all':
+      default:
+        return activeStudents;
+    }
+  }, [studentFilter, activeStudents, paidStudents, dueSoonStudents, overdueStudents]);
+
+  const recentPayments = payments.slice(0, 5);
 
   return (
     <ScrollView
@@ -83,22 +101,59 @@ export default function DashboardScreen() {
       {/* Main KPI Overview Card */}
       <FeeSummaryCard summary={dynamicSummary} />
 
-      {/* Overdue Students Alert Section */}
+      {/* Enrolled Students Directory Section */}
       <View style={styles.sectionHeader}>
         <View style={styles.sectionTitleRow}>
-          <Ionicons name="alert-circle" size={20} color={COLORS.status.overdue} />
-          <Text style={styles.sectionTitle}>Overdue Students</Text>
+          <Ionicons name="people" size={20} color={COLORS.primary} />
+          <Text style={styles.sectionTitle}>Enrolled Students</Text>
           <View style={styles.badgeCount}>
-            <Text style={styles.badgeCountText}>{overdueStudents.length}</Text>
+            <Text style={styles.badgeCountText}>{activeStudents.length}</Text>
           </View>
         </View>
         <TouchableOpacity onPress={() => router.push('/(tabs)/students')}>
-          <Text style={styles.seeAllText}>See all</Text>
+          <Text style={styles.seeAllText}>See all ({students.length})</Text>
         </TouchableOpacity>
       </View>
 
-      {overdueStudents.length > 0 ? (
-        overdueStudents.map((student) => (
+      {/* Quick Filter Tabs for Students */}
+      <View style={styles.filterTabsRow}>
+        <TouchableOpacity
+          style={[styles.filterChip, studentFilter === 'all' ? styles.filterChipActive : null]}
+          onPress={() => setStudentFilter('all')}
+        >
+          <Text style={[styles.filterChipText, studentFilter === 'all' ? styles.filterChipTextActive : null]}>
+            All ({activeStudents.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, studentFilter === 'paid' ? styles.filterChipActivePaid : null]}
+          onPress={() => setStudentFilter('paid')}
+        >
+          <Text style={[styles.filterChipText, studentFilter === 'paid' ? styles.filterChipTextActivePaid : null]}>
+            Paid ({paidStudents.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, studentFilter === 'due' ? styles.filterChipActiveDue : null]}
+          onPress={() => setStudentFilter('due')}
+        >
+          <Text style={[styles.filterChipText, studentFilter === 'due' ? styles.filterChipTextActiveDue : null]}>
+            Due Soon ({dueSoonStudents.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, studentFilter === 'overdue' ? styles.filterChipActiveOverdue : null]}
+          onPress={() => setStudentFilter('overdue')}
+        >
+          <Text style={[styles.filterChipText, studentFilter === 'overdue' ? styles.filterChipTextActiveOverdue : null]}>
+            Overdue ({overdueStudents.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Student Cards List */}
+      {displayedStudents.length > 0 ? (
+        displayedStudents.map((student) => (
           <StudentCard
             key={student.id}
             student={student}
@@ -118,9 +173,23 @@ export default function DashboardScreen() {
         ))
       ) : (
         <EmptyState
-          icon="checkmark-circle-outline"
-          title="No Overdue Fees!"
-          description="All active students are up to date on their payments."
+          icon={studentFilter === 'paid' ? 'cash-outline' : 'checkmark-circle-outline'}
+          title={
+            studentFilter === 'paid'
+              ? 'No Paid Students Yet'
+              : studentFilter === 'overdue'
+              ? 'No Overdue Students!'
+              : studentFilter === 'due'
+              ? 'No Fees Due Soon'
+              : 'No Active Students'
+          }
+          description={
+            studentFilter === 'paid'
+              ? 'Payments recorded for students will appear here.'
+              : studentFilter === 'overdue'
+              ? 'All active students are up to date on their payments.'
+              : 'Add new students to start tracking their monthly fees.'
+          }
           style={{ paddingVertical: SPACING.lg }}
         />
       )}
@@ -140,7 +209,18 @@ export default function DashboardScreen() {
         {recentPayments.length > 0 ? (
           recentPayments.map((payment, index) => (
             <View key={payment.id}>
-              <View style={styles.paymentRow}>
+              <TouchableOpacity
+                style={styles.paymentRow}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (payment.studentId) {
+                    router.push({
+                      pathname: '/students/[id]',
+                      params: { id: payment.studentId },
+                    });
+                  }
+                }}
+              >
                 <View style={styles.paymentIconBadge}>
                   <Ionicons
                     name={payment.paymentMethod === 'upi' ? 'qr-code-outline' : 'cash-outline'}
@@ -154,8 +234,11 @@ export default function DashboardScreen() {
                     {payment.studentCode} • {payment.paymentMethod.toUpperCase()} • {payment.paymentDate}
                   </Text>
                 </View>
-                <Text style={styles.paymentAmount}>+₹{payment.amount.toLocaleString()}</Text>
-              </View>
+                <View style={styles.paymentAmountContainer}>
+                  <Text style={styles.paymentAmount}>+₹{payment.amount.toLocaleString()}</Text>
+                  <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
+                </View>
+              </TouchableOpacity>
               {index < recentPayments.length - 1 ? <View style={styles.paymentDivider} /> : null}
             </View>
           ))
@@ -216,6 +299,62 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: 13,
     fontWeight: '600',
+  },
+  filterTabsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: SPACING.md,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+  },
+  filterChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  filterChipActivePaid: {
+    backgroundColor: COLORS.status.paid,
+    borderColor: COLORS.status.paid,
+  },
+  filterChipActiveDue: {
+    backgroundColor: COLORS.status.due,
+    borderColor: COLORS.status.due,
+  },
+  filterChipActiveOverdue: {
+    backgroundColor: COLORS.status.overdue,
+    borderColor: COLORS.status.overdue,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  filterChipTextActive: {
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+  filterChipTextActivePaid: {
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+  filterChipTextActiveDue: {
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+  filterChipTextActiveOverdue: {
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+  paymentAmountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   paymentsListCard: {
     backgroundColor: COLORS.card,
