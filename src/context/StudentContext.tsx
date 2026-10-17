@@ -10,6 +10,7 @@ interface StudentContextType {
   loading: boolean;
   addStudent: (input: CreateStudentInput) => Promise<Student>;
   updateStudent: (id: string, input: UpdateStudentInput) => Promise<Student>;
+  deleteStudent: (id: string) => Promise<void>;
   toggleStudentStatus: (id: string) => Promise<void>;
   getStudentById: (id: string) => Student | undefined;
   peekNextStudentCode: () => Promise<string>;
@@ -162,6 +163,18 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     await StorageService.saveStudents(updatedList);
   };
 
+  const deleteStudent = async (id: string): Promise<void> => {
+    // 1. Permanently remove from Supabase database if configured
+    await StudentService.deleteStudent(id);
+
+    // 2. Permanently remove from local state
+    const remaining = students.filter((s) => s.id !== id);
+    setStudents(remaining);
+
+    // 3. Persist permanently to local storage
+    await StorageService.saveStudents(remaining);
+  };
+
   const getStudentById = (id: string): Student | undefined => {
     return students.find((s) => s.id === id);
   };
@@ -173,6 +186,7 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         loading,
         addStudent,
         updateStudent,
+        deleteStudent,
         toggleStudentStatus,
         getStudentById,
         peekNextStudentCode,

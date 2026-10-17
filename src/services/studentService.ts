@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { CreateStudentInput, Student, UpdateStudentInput } from '../types/student';
 import { addCalendarDays, getDaysRemaining, getTodayDateString } from '../utils/date';
@@ -48,52 +49,103 @@ function decodeBase64ToArrayBuffer(base64: string): ArrayBuffer {
 export const StudentService = {
   /**
    * Fetches all students from Supabase (or local storage if not configured)
+   * Cross-references with local cache and recorded payments so lastPaymentDate and feeStatus remain 100% stable on refresh
    */
   async fetchStudents(): Promise<Student[]> {
-    if (!isSupabaseConfigured) {
-      return await StorageService.getStudents();
+    const localStudents = await StorageService.getStudents();
+    let baseStudents: Student[] = localStudents;
+
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          baseStudents = data.map((row) => {
+            const localMatch = localStudents.find(
+              (ls) => ls.id === row.id || ls.studentCode === row.student_code
+            );
+            const admissionDate = row.admission_date || localMatch?.admissionDate || getTodayDateString();
+            const nextDeadline = localMatch?.nextDeadline || addCalendarDays(admissionDate, 30);
+            const daysLeft = getDaysRemaining(nextDeadline);
+
+            return {
+              id: row.id,
+              studentCode: row.student_code,
+              name: row.name,
+              phone: row.phone,
+              parentName: row.parent_name || localMatch?.parentName || undefined,
+              parentPhone: row.parent_phone || localMatch?.parentPhone || undefined,
+              monthlyFee: Number(row.monthly_fee),
+              status: row.status,
+              photoUrl: row.photo_url || localMatch?.photoUrl || undefined,
+              admissionDate,
+              feeStatus: localMatch?.feeStatus || (daysLeft < 0 ? 'overdue' : 'due'),
+              lastPaymentDate: localMatch?.lastPaymentDate,
+              nextDeadline,
+              daysRemaining: daysLeft,
+              outstandingAmount:
+                localMatch?.outstandingAmount !== undefined
+                  ? localMatch.outstandingAmount
+                  : Number(row.monthly_fee),
+              createdAt: row.created_at || localMatch?.createdAt || new Date().toISOString(),
+              updatedAt: row.updated_at || localMatch?.updatedAt || new Date().toISOString(),
+            };
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to fetch from Supabase, using local fallback:', err);
+      }
     }
 
+    // Cross-verify with stored payments to guarantee payment records and dates persist on refresh
     try {
-      const { data, error } = await supabase
-        .from('students')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const rawPayments = await AsyncStorage.getItem('@fee_manager_payments_v2');
+      if (rawPayments) {
+        const allPayments = JSON.parse(rawPayments);
+        return baseStudents.map((s) => {
+          const studentPayments = allPayments.filter((p: any) => p.studentId === s.id);
+          if (studentPayments.length > 0) {
+            const latest = studentPayments[0];
+            const isPaid = s.outstandingAmount <= 0 || s.feeStatus === 'paid';
+            const nextDeadline = s.nextDeadline || addCalendarDays(latest.paymentDate, 30);
+            const daysLeft = getDaysRemaining(nextDeadline);
 
-      if (error) throw error;
-
-      if (!data || data.length === 0) {
-        return await StorageService.getStudents();
+            return {
+              ...s,
+              lastPaymentDate: s.lastPaymentDate || latest.paymentDate,
+              nextDeadline,
+              daysRemaining: daysLeft,
+              outstandingAmount: isPaid ? 0 : s.outstandingAmount,
+              feeStatus: isPaid ? ('paid' as const) : daysLeft < 0 ? ('overdue' as const) : ('due' as const),
+            };
+          }
+          return s;
+        });
       }
+    } catch {
+      // Fallback to baseStudents
+    }
 
-      return data.map((row) => {
-        const admissionDate = row.admission_date || getTodayDateString();
-        const nextDeadline = addCalendarDays(admissionDate, 30);
-        const daysLeft = getDaysRemaining(nextDeadline);
+    return baseStudents;
+  },
 
-        return {
-          id: row.id,
-          studentCode: row.student_code,
-          name: row.name,
-          phone: row.phone,
-          parentName: row.parent_name || undefined,
-          parentPhone: row.parent_phone || undefined,
-          monthlyFee: Number(row.monthly_fee),
-          status: row.status,
-          photoUrl: row.photo_url || undefined,
-          admissionDate,
-          feeStatus: daysLeft < 0 ? 'overdue' : daysLeft <= 3 ? 'due' : 'due',
-          lastPaymentDate: undefined,
-          nextDeadline,
-          daysRemaining: daysLeft,
-          outstandingAmount: Number(row.monthly_fee),
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-        };
-      });
-    } catch (err) {
-      console.warn('Failed to fetch from Supabase, using local fallback:', err);
-      return await StorageService.getStudents();
+  /**
+   * Permanently deletes a student and cleans up related cycles and payments from database
+   */
+  async deleteStudent(id: string): Promise<void> {
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.from('payments').delete().eq('student_id', id);
+        await supabase.from('billing_cycles').delete().eq('student_id', id);
+        await supabase.from('reminder_logs').delete().eq('student_id', id);
+        const { error } = await supabase.from('students').delete().eq('id', id);
+        if (error) console.warn('Supabase delete student error:', error);
+      } catch (err) {
+        console.warn('Failed to delete student from Supabase:', err);
+      }
     }
   },
 
