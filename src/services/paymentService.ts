@@ -5,7 +5,7 @@ import { Student } from '../types/student';
 import { evaluatePaymentPolicy } from '../utils/billingCycle';
 
 const STORAGE_KEYS = {
-  PAYMENTS: '@fee_manager_payments_v1',
+  PAYMENTS: '@fee_manager_payments_v2',
 };
 
 export const PaymentService = {

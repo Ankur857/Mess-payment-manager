@@ -2,8 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Student } from '../types/student';
 
 const STORAGE_KEYS = {
-  STUDENTS: '@fee_manager_students_v1',
-  STUDENT_SEQUENCE: '@fee_manager_student_sequence_v1',
+  STUDENTS: '@fee_manager_students_v2',
+  STUDENT_SEQUENCE: '@fee_manager_student_sequence_v2',
 };
 
 export const StorageService = {
