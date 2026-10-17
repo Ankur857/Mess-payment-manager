@@ -3,6 +3,48 @@ import { CreateStudentInput, Student, UpdateStudentInput } from '../types/studen
 import { addCalendarDays, getDaysRemaining, getTodayDateString } from '../utils/date';
 import { StorageService } from '../utils/storage';
 
+function decodeBase64ToArrayBuffer(base64: string): ArrayBuffer {
+  if (typeof globalThis.atob === 'function') {
+    const binStr = globalThis.atob(base64);
+    const len = binStr.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binStr.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const lookup = new Uint8Array(256);
+  for (let i = 0; i < chars.length; i++) {
+    lookup[chars.charCodeAt(i)] = i;
+  }
+
+  let bufferLength = base64.length * 0.75;
+  const len = base64.length;
+  if (base64[base64.length - 1] === '=') {
+    bufferLength--;
+    if (base64[base64.length - 2] === '=') {
+      bufferLength--;
+    }
+  }
+
+  const bytes = new Uint8Array(bufferLength);
+  let p = 0;
+  for (let i = 0; i < len; i += 4) {
+    const encoded1 = lookup[base64.charCodeAt(i)];
+    const encoded2 = lookup[base64.charCodeAt(i + 1)];
+    const encoded3 = lookup[base64.charCodeAt(i + 2)];
+    const encoded4 = lookup[base64.charCodeAt(i + 3)];
+
+    bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
+    bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
+    bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
+  }
+
+  return bytes.buffer;
+}
+
 export const StudentService = {
   /**
    * Fetches all students from Supabase (or local storage if not configured)
@@ -187,29 +229,44 @@ export const StudentService = {
    * Uploads student photo to Supabase Storage bucket 'student-photos'
    */
   async uploadPhoto(uri: string, studentCode: string): Promise<string | null> {
-    if (!isSupabaseConfigured) return uri;
+    if (!isSupabaseConfigured || !uri) return uri;
+
+    // If it's already a remote URL, no upload needed
+    if (uri.startsWith('http://') || uri.startsWith('https://')) {
+      return uri;
+    }
 
     try {
       const filename = `${studentCode}-${Date.now()}.jpg`;
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      let uploadBody: ArrayBuffer | Blob;
+
+      if (uri.startsWith('data:')) {
+        // Strip data URI prefix and decode to ArrayBuffer in memory (bypasses Android native fetch)
+        const commaIdx = uri.indexOf(',');
+        const base64Data = commaIdx >= 0 ? uri.substring(commaIdx + 1) : uri;
+        uploadBody = decodeBase64ToArrayBuffer(base64Data);
+      } else {
+        const response = await fetch(uri);
+        uploadBody = await response.blob();
+      }
 
       const { error } = await supabase.storage
         .from('student-photos')
-        .upload(filename, blob, {
+        .upload(filename, uploadBody, {
           contentType: 'image/jpeg',
           upsert: true,
         });
 
-      if (error) throw error;
+      if (error) {
+        return uri;
+      }
 
       const { data } = supabase.storage
         .from('student-photos')
         .getPublicUrl(filename);
 
-      return data.publicUrl;
-    } catch (err) {
-      console.warn('Photo upload to Supabase storage failed, using local URI:', err);
+      return data?.publicUrl || uri;
+    } catch {
       return uri;
     }
   },
