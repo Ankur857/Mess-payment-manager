@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Switch,
@@ -11,15 +13,30 @@ import {
 } from 'react-native';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { COLORS, RADIUS, SHADOWS, SPACING } from '../../constants/theme';
+import { usePayments } from '../../context/PaymentContext';
+import { useReminders } from '../../context/ReminderContext';
+import { useStudents } from '../../context/StudentContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { refreshStudents } = useStudents();
+  const { refreshPayments } = usePayments();
+  const { refreshReminders } = useReminders();
+
   const [logoutVisible, setLogoutVisible] = useState(false);
+  const [resetVisible, setResetVisible] = useState(false);
   const [autoReminderEnabled, setAutoReminderEnabled] = useState(true);
 
   const handleLogout = () => {
     setLogoutVisible(false);
     router.replace('/(auth)/login');
+  };
+
+  const handleResetData = async () => {
+    setResetVisible(false);
+    await AsyncStorage.clear();
+    await Promise.all([refreshStudents(), refreshPayments(), refreshReminders()]);
+    Alert.alert('Data Cleared ✅', 'All static and cached data has been completely erased. App is in a clean state.');
   };
 
   return (
@@ -96,16 +113,37 @@ export default function SettingsScreen() {
       </View>
 
       {/* Account Security & Logout */}
-      <Text style={styles.sectionHeading}>Session & Security</Text>
+      <Text style={styles.sectionHeading}>Data Management & Security</Text>
       <View style={styles.card}>
+        <TouchableOpacity
+          style={styles.navRow}
+          onPress={() => setResetVisible(true)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.navLeft}>
+            <Ionicons name="trash-outline" size={20} color={COLORS.error} />
+            <View>
+              <Text style={[styles.settingTitle, { color: COLORS.error }]}>
+                Clear All Local Data
+              </Text>
+              <Text style={styles.settingDescription}>
+                Erase all cached students, payments, and reminders
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+        </TouchableOpacity>
+
+        <View style={styles.divider} />
+
         <TouchableOpacity
           style={styles.navRow}
           onPress={() => setLogoutVisible(true)}
           activeOpacity={0.7}
         >
           <View style={styles.navLeft}>
-            <Ionicons name="log-out-outline" size={20} color={COLORS.error} />
-            <Text style={[styles.settingTitle, { color: COLORS.error }]}>
+            <Ionicons name="log-out-outline" size={20} color={COLORS.textPrimary} />
+            <Text style={styles.settingTitle}>
               Log Out of Admin Portal
             </Text>
           </View>
@@ -116,8 +154,19 @@ export default function SettingsScreen() {
       {/* App Version Info */}
       <View style={styles.versionContainer}>
         <Text style={styles.versionText}>Fee Manager App v1.0.0 (Expo SDK 57)</Text>
-        <Text style={styles.versionSubtext}>Supabase PostgreSQL + WhatsApp Cloud API</Text>
+        <Text style={styles.versionSubtext}>Single-Admin Production Ready</Text>
       </View>
+
+      {/* Reset Confirmation Dialog */}
+      <ConfirmDialog
+        visible={resetVisible}
+        title="Clear All Local Data?"
+        message="This will completely wipe all local students, payments, and reminders. This action cannot be undone."
+        confirmText="Erase All Data"
+        isDestructive
+        onConfirm={handleResetData}
+        onCancel={() => setResetVisible(false)}
+      />
 
       {/* Logout Confirmation Dialog */}
       <ConfirmDialog

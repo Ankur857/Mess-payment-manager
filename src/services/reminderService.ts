@@ -8,48 +8,6 @@ const STORAGE_KEYS = {
   REMINDERS: '@fee_manager_reminders_v1',
 };
 
-// Initial seed reminder logs
-const INITIAL_SEED_REMINDERS: ReminderLog[] = [
-  {
-    id: 'rem-seed-1',
-    studentId: 'stu-aarav-seed',
-    studentName: 'Aarav Sharma',
-    studentCode: 'STU-2026-0001',
-    studentPhone: '+919876543210',
-    billingCycleId: 'bc-1',
-    dueDate: '2026-02-09',
-    overdueDayCount: 31,
-    pendingAmount: 3500,
-    messageText:
-      'Aarav Sharma (STU-2026-0001): Monthly fee of ₹3,500 was due on 2026-02-09 (Day 31 overdue). Account flagged for follow-up.',
-    status: 'pending',
-    scheduledFor: new Date().toISOString(),
-    attemptCount: 0,
-    isMock: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'rem-seed-2',
-    studentId: 'stu-2',
-    studentName: 'Diya Patel',
-    studentCode: 'STU-2026-0002',
-    studentPhone: '+919876500001',
-    billingCycleId: 'bc-2',
-    dueDate: '2026-02-11',
-    overdueDayCount: 31,
-    pendingAmount: 4000,
-    messageText:
-      'Dear Diya Patel (STU-2026-0002), your monthly fee of ₹4,000 is pending since 2026-02-11. Please clear the outstanding balance.',
-    status: 'sent',
-    scheduledFor: '2026-02-12T09:00:00Z',
-    sentAt: '2026-02-12T09:02:14Z',
-    providerMessageId: 'wamid.HBgLMjUxOTg3NjUwMDAxFQIAERgSMTQ1',
-    attemptCount: 1,
-    isMock: true,
-    createdAt: '2026-02-11T12:00:00Z',
-  },
-];
-
 export const ReminderService = {
   async fetchReminders(): Promise<ReminderLog[]> {
     if (!isSupabaseConfigured) {
@@ -183,19 +141,18 @@ export const ReminderService = {
   async getLocalReminders(): Promise<ReminderLog[]> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.REMINDERS);
-      if (!data) {
-        await AsyncStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(INITIAL_SEED_REMINDERS));
-        return INITIAL_SEED_REMINDERS;
-      }
+      if (!data) return [];
       const parsed: ReminderLog[] = JSON.parse(data);
-      // Clean out any previously saved test phone entries
-      const sanitized = parsed.filter((r) => !r.studentPhone.includes('8574117424'));
+      // Clean out any legacy seed entries
+      const sanitized = parsed.filter(
+        (r) => !r.id.includes('seed') && !r.id.includes('test') && !r.studentPhone.includes('8574117424')
+      );
       if (sanitized.length !== parsed.length) {
         await AsyncStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(sanitized));
       }
-      return sanitized.length > 0 ? sanitized : INITIAL_SEED_REMINDERS;
+      return sanitized;
     } catch {
-      return INITIAL_SEED_REMINDERS;
+      return [];
     }
   },
 };
