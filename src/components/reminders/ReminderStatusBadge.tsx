@@ -19,7 +19,7 @@ export const ReminderStatusBadge: React.FC<ReminderStatusBadgeProps> = ({
           bg: COLORS.status.paidBg,
           text: COLORS.status.paid,
           border: COLORS.status.paidBorder,
-          label: isMock ? 'Mock Sent' : 'Delivered',
+          label: 'Notified',
         };
       case 'failed':
         return {

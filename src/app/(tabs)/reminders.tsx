@@ -66,18 +66,18 @@ export default function RemindersScreen() {
   const handleSendNow = async (id: string, studentName: string) => {
     const success = await sendReminder(id);
     if (success) {
-      Alert.alert('Dispatched 📲', `WhatsApp reminder successfully sent to ${studentName}!`);
+      Alert.alert('Recorded ✅', `Follow-up recorded for ${studentName}!`);
     } else {
-      Alert.alert('Delivery Failed', 'Unable to dispatch WhatsApp reminder. Check phone number format.');
+      Alert.alert('Update Failed', 'Unable to record follow-up.');
     }
   };
 
   const handleRetry = async (id: string) => {
     const success = await retryReminder(id);
     if (success) {
-      Alert.alert('Retried 📲', 'WhatsApp reminder re-sent successfully!');
+      Alert.alert('Status Updated ✅', 'Follow-up status reset successfully!');
     } else {
-      Alert.alert('Retry Failed', 'Retry limit reached or phone number invalid.');
+      Alert.alert('Retry Failed', 'Retry limit reached.');
     }
   };
 
@@ -93,7 +93,7 @@ export default function RemindersScreen() {
   const tabs: { label: string; value: FilterTab }[] = [
     { label: 'All', value: 'all' },
     { label: 'Upcoming', value: 'pending' },
-    { label: 'Sent', value: 'sent' },
+    { label: 'Notified', value: 'sent' },
     { label: 'Failed', value: 'failed' },
     { label: 'Cancelled', value: 'cancelled' },
   ];
