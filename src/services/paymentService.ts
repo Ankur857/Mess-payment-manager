@@ -39,10 +39,11 @@ export const PaymentService = {
       if (error) throw error;
 
       if (!data || data.length === 0) {
-        return await this.getLocalPayments();
+        await AsyncStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify([]));
+        return [];
       }
 
-      return data.map((row: any) => ({
+      const mapped = data.map((row: any) => ({
         id: row.id,
         studentId: row.student_id,
         studentName: row.students?.name || 'Unknown Student',
@@ -54,6 +55,8 @@ export const PaymentService = {
         notes: row.notes || undefined,
         createdAt: row.created_at,
       }));
+      await AsyncStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(mapped));
+      return mapped;
     } catch (err) {
       console.warn('Failed to fetch payments from Supabase, using local fallback:', err);
       return await this.getLocalPayments();

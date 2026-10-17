@@ -62,7 +62,13 @@ export const StudentService = {
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (!error && data && data.length > 0) {
+        if (!error && Array.isArray(data)) {
+          if (data.length === 0) {
+            baseStudents = [];
+            await StorageService.saveStudents([]);
+            return [];
+          }
+
           baseStudents = data.map((row) => {
             const localMatch = localStudents.find(
               (ls) => ls.id === row.id || ls.studentCode === row.student_code
@@ -94,10 +100,15 @@ export const StudentService = {
               updatedAt: row.updated_at || localMatch?.updatedAt || new Date().toISOString(),
             };
           });
+          await StorageService.saveStudents(baseStudents);
         }
       } catch (err) {
         console.warn('Failed to fetch from Supabase, using local fallback:', err);
       }
+    }
+
+    if (baseStudents.length === 0) {
+      return [];
     }
 
     // Cross-verify with stored payments to guarantee payment records and dates persist on refresh
